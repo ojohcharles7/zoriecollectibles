@@ -46,7 +46,7 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 14px 34px -12px rgba(158,121,34,.7), 0 0 0 4px rgba(184,145,47,.12); }
 
   /* forest primary */
-  .btn-forest{ background:linear-gradient(135deg,#2A5C46 0%,#1E4B38 55%,#14382A 100%); color:var(--cream); border:1px solid rgba(14,42,32,.6);
+  .btn-forest{ background:linear-gradient(135deg,#2A5C46 0%,#1E4B38 55%,#14382A 100%); color:#fff; border:1px solid rgba(14,42,32,.6);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 10px 28px -12px rgba(14,42,32,.6); }
   .btn-forest:hover{ background:linear-gradient(135deg,#35694F 0%,#275840 55%,#1B4634 100%); border-color:rgba(14,42,32,.75);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 14px 34px -12px rgba(14,42,32,.7), 0 0 0 4px rgba(23,63,48,.12); }
@@ -118,6 +118,10 @@
 
   .toast{ transform:translateY(20px); opacity:0; transition:all .35s ease; }
   .toast.show{ transform:translateY(0); opacity:1; }
+
+  /* admin mode — hide storefront chrome so admin opens as its own page */
+  body.admin-mode .storefront-only{ display:none !important; }
+  body.admin-mode #app{ padding-bottom:0; }
 
   .stat-card{ background:#fff; border:1px solid #e4dcc7; border-radius:12px; box-shadow:0 1px 3px rgba(14,42,32,.05); }
 

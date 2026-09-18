@@ -104,11 +104,11 @@ const DB = {
     if(sb && Array.isArray(v) && v.some(p=>String(p.img||'').startsWith('data:'))) v = DEFAULT_PRODUCTS;
     return (DATA.products = v);
   },
-  set products(v){ DATA.products = v; if(sb){ sb.from('products').upsert(v.map(toRow)).catch(e=>console.warn('sync products', e)); } else { ls.set('zorie_products', v); } },
+  set products(v){ DATA.products = v; if(sb){ sb.from('products').upsert(v.map(toRow)).then(()=>{}).catch(e=>console.warn('sync products', e)); } else { ls.set('zorie_products', v); } },
   get orders(){ return DATA.orders || (DATA.orders = ls.get('zorie_orders', [])); },
   set orders(v){ DATA.orders = v; if(!sb){ ls.set('zorie_orders', v); } },
   get discounts(){ return DATA.discounts || (DATA.discounts = ls.get('zorie_discounts', DEFAULT_DISCOUNTS)); },
-  set discounts(v){ DATA.discounts = v; if(sb){ sb.from('discounts').upsert(v).catch(e=>console.warn('sync discounts', e)); } else { ls.set('zorie_discounts', v); } },
+  set discounts(v){ DATA.discounts = v; if(sb){ sb.from('discounts').upsert(v).then(()=>{}).catch(e=>console.warn('sync discounts', e)); } else { ls.set('zorie_discounts', v); } },
   get subscribers(){ return DATA.subscribers || (DATA.subscribers = ls.get('zorie_subs', [])); },
   set subscribers(v){ DATA.subscribers = v; if(!sb){ ls.set('zorie_subs', v); } },
   get cart(){ return DATA.cart; },
@@ -150,7 +150,7 @@ async function refreshAdminData(){
     if(orders){ DATA.orders = orders; }
     if(discounts && discounts.length){ DATA.discounts = discounts; }
     if(subscribers){ DATA.subscribers = subscribers.map(s=>s.email); }
-  }catch(e){ adminDataLoaded = false; throw e; }
+  }catch(e){ adminDataLoaded = false; console.warn('admin data load failed — using local data.', e); }
 }
 
 function findProduct(id){ return DB.products.find(p=>p.id===id); }
@@ -327,6 +327,7 @@ function setMeta(meta){
 function router(){
   closeAllOverlays();
   const {route, params} = parseHash();
+  document.body.classList.toggle('admin-mode', route==='admin');
   window.scrollTo({top:0, behavior:'instant' in window ? 'instant':'auto'});
   if(route==='home'){ renderHome(); setMeta(ROUTE_META.home); }
   else if(route==='shop'){ currentShopFilters = params; renderShop(params); setMeta(ROUTE_META.shop); }
@@ -744,6 +745,7 @@ function checkoutFormHTML(lines, discountPct){
   const delivery = subtotal>50000 || subtotal===0 ? 0 : 3500;
   const discountAmt = Math.round(subtotal * (discountPct||0)/100);
   const total = subtotal - discountAmt + delivery;
+  const hasActiveDiscounts = (DB.discounts||[]).some(d=>d.active);
   return `
   <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
   <h2 class="serif text-3xl mb-8">Checkout</h2>
@@ -760,7 +762,7 @@ function checkoutFormHTML(lines, discountPct){
         <div><label>City</label><input type="text" id="co-city" required></div>
         <div>
           <label>Delivery Method</label>
-          <select id="co-method"><option>Home Delivery</option><option>Pickup — Lagos</option></select>
+          <select id="co-method"><option>Home Delivery</option><option>Pickup — Aba</option><option>Pickup — Abuja</option><option>Pickup — Asaba</option><option>Pickup — Enugu</option><option>Pickup — Lagos</option><option>Pickup — Owerri</option><option>Pickup — Port Harcourt</option></select>
         </div>
       </div>
 
@@ -784,6 +786,7 @@ function checkoutFormHTML(lines, discountPct){
       </div>
       <p class="text-[11px] text-gray-600 mb-6">Pay securely online with Paystack, or transfer to our OPay account.</p>
 
+      ${hasActiveDiscounts ? `
       <div class="mb-6">
         <label>Discount Code</label>
         <div class="flex gap-2">
@@ -791,7 +794,7 @@ function checkoutFormHTML(lines, discountPct){
           <button type="button" onclick="applyDiscount()" class="btn btn-forest btn-xs">Apply</button>
         </div>
         <div id="discount-msg" class="text-xs mt-1"></div>
-      </div>
+      </div>` : ''}
 
       <button class="btn btn-gold w-full">Place Order — ${naira(total)} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </form>
@@ -826,7 +829,9 @@ function togglePayMethod(v){
   if(d) d.classList.toggle('hidden', v!=='opay');
 }
 function applyDiscount(){
-  const code = document.getElementById('co-discount').value.trim().toUpperCase();
+  const el = document.getElementById('co-discount');
+  if(!el){ appliedDiscount = 0; return; }
+  const code = el.value.trim().toUpperCase();
   const d = DB.discounts.find(x=>x.code===code && x.active);
   const msg = document.getElementById('discount-msg');
   if(d){ appliedDiscount = d.pct; msg.textContent = `Code applied — ${d.pct}% off`; msg.className='text-xs mt-1 text-forest'; }
@@ -1136,7 +1141,7 @@ async function adminLogin(e){
     if(pw === (CONFIG.admin.demoPassword || 'zorie2026')){
       sessionStorage.setItem('zorie_admin','1');
       closeModal('admin-login-modal');
-      location.hash = '#admin';
+      router();
     } else { toast('Incorrect password'); }
     return false;
   }
@@ -1144,21 +1149,22 @@ async function adminLogin(e){
   if(error){ toast('Incorrect password'); return false; }
   sessionStorage.setItem('zorie_admin','1');
   closeModal('admin-login-modal');
-  location.hash = '#admin';
+  router();
   return false;
 }
 async function adminLogout(){
   if(sb){ await sb.auth.signOut(); }
   sessionStorage.removeItem('zorie_admin');
-  location.hash = '#home';
+  router();
 }
 
 async function renderAdminGate(){
-  let authed = false;
-  if(sb){ const { data } = await sb.auth.getSession(); authed = !!data.session; }
-  else { authed = sessionStorage.getItem('zorie_admin')==='1'; }
+  const authed = sessionStorage.getItem('zorie_admin')==='1';
   if(authed){ renderAdmin(); return; }
-  document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center">
+  document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center relative">
+    <a href="index.html" aria-label="Back to store" title="Back to store" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-[#e4dcc7] text-forest-dark hover:text-gold hover:border-gold flex items-center justify-center transition">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
+    </a>
     <div class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest flex items-center justify-center">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
     </div>
@@ -1168,10 +1174,11 @@ async function renderAdminGate(){
   </div>`;
 }
 
-let adminTab = 'overview';
+let adminTab = sessionStorage.getItem('zorie_adminTab') || 'overview';
 async function setAdminTab(t){
   const y = window.scrollY;
   adminTab = t;
+  sessionStorage.setItem('zorie_adminTab', t);
   await renderAdmin();
   if(y) window.scrollTo({top:y, behavior:'instant' in window ? 'instant':'auto'});
 }
@@ -1202,7 +1209,7 @@ function statusBadge(s){
   else if(t.includes('proof')||t.includes('paid')) cls = 'bg-sky-100 text-sky-800';
   else if(t==='processing') cls = 'bg-gold-pale text-forest-dark';
   else if(t==='shipped') cls = 'bg-forest text-cream';
-  else if(t==='delivered') cls = 'bg-green-100 text-green-800';
+  else if(t==='delivered') cls = 'bg-green-600 text-white';
   else if(t==='cancelled') cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s}</span>`;
 }
@@ -1400,7 +1407,7 @@ async function renderAdmin(){
       <aside class="min-w-0">
         <nav class="tab-scroll min-w-0 w-full max-w-full flex md:flex-col gap-1.5 overflow-x-auto overscroll-x-contain text-sm sticky top-16 md:top-24 z-30 bg-cream/95 backdrop-blur px-1 py-2 pr-2 md:pr-0 -mx-1 md:mx-0 md:px-0 md:py-0">
           ${ADMIN_TABS.map(([k,l,icon])=>`
-            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest text-cream shadow-lg shadow-forest/20':'text-forest-dark hover:bg-gold-pale'}">
+            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest text-white shadow-lg shadow-forest/20':'text-forest-dark hover:bg-gold-pale'}">
               ${icon}<span>${l}</span>
             </button>`).join('')}
         </nav>
@@ -1574,10 +1581,10 @@ async function renderAdmin(){
       <h2 class="serif text-2xl mb-6">Customers</h2>
       <div class="overflow-x-auto">
       <table class="admin-table w-full min-w-[560px] responsive">
-        <thead><tr><th>Name</th><th>Email</th><th>Orders</th><th>Total Spent</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead>
         <tbody>
-          ${list.map(cu=>`<tr><td>${cu.name}</td><td data-label="Email">${cu.email}</td><td data-label="Orders">${cu.orders}</td><td data-label="Total Spent">${naira(cu.spent)}</td></tr>`).join('')}
-          ${list.length===0?'<tr><td colspan="4" class="text-center text-gray-600 py-8">No customers yet.</td></tr>':''}
+          ${list.map(cu=>`<tr><td>${cu.name}</td><td data-label="Email">${cu.email}</td><td data-label="Phone">${cu.phone||'—'}</td><td data-label="Orders">${cu.orders}</td><td data-label="Total Spent">${naira(cu.spent)}</td></tr>`).join('')}
+          ${list.length===0?'<tr><td colspan="5" class="text-center text-gray-600 py-8">No customers yet.</td></tr>':''}
         </tbody>
       </table>
       </div>
@@ -1595,13 +1602,20 @@ async function renderAdmin(){
       </div>
       <div class="overflow-x-auto">
       <table class="admin-table w-full min-w-[420px] responsive">
-        <thead><tr><th>Code</th><th>Discount</th><th>Active</th><th></th></tr></thead>
+        <thead><tr><th>Code</th><th>Discount</th><th>Status</th><th></th></tr></thead>
         <tbody>
         ${discounts.map((d,i)=>`
           <tr>
-            <td>${d.code}</td>
+            <td class="font-semibold">${d.code}</td>
             <td data-label="Discount">${d.pct}%</td>
-            <td data-label="Active"><input type="checkbox" ${d.active?'checked':''} onchange="toggleDiscount(${i})"></td>
+            <td data-label="Status">
+              <button type="button" onclick="toggleDiscount(${i})" class="inline-flex items-center gap-2 cursor-pointer bg-transparent border-0 p-0" aria-label="Toggle ${d.code}">
+                <span class="relative inline-block w-9 h-5 rounded-full transition ${d.active?'bg-forest':'bg-gray-300'}">
+                  <span class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${d.active?'translate-x-4':'translate-x-0.5'}"></span>
+                </span>
+                <span class="text-xs ${d.active?'text-forest font-medium':'text-gray-500'}">${d.active?'Active · shows at checkout':'Inactive · hidden'}</span>
+              </button>
+            </td>
             <td data-label=""><button onclick="removeDiscount(${i})" class="text-red-500 underline text-xs">Remove</button></td>
           </tr>`).join('')}
         </tbody>
@@ -1635,7 +1649,7 @@ async function renderAdmin(){
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h2 class="serif text-2xl">Reports</h2>
         <div class="flex items-center gap-2 flex-wrap">
-          ${ranges.map(([v,l])=>`<button onclick="setReportRange('${v}')" class="btn ${String(reportRange)===v?'btn-forest':'btn-outline'} btn-xs">${l}</button>`).join('')}
+          ${ranges.map(([v,l])=>`<button onclick="setReportRange('${v}')" class="btn btn-forest btn-xs ${String(reportRange)===v?'':'opacity-70'}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -1651,7 +1665,7 @@ async function renderAdmin(){
       </div>
       <div class="flex flex-wrap gap-3 mb-8">
         <button onclick="exportOrdersCSV()" class="btn btn-forest btn-sm">Export Orders CSV</button>
-        <button onclick="exportSummaryCSV()" class="btn btn-outline btn-sm">Export Summary CSV</button>
+        <button onclick="exportSummaryCSV()" class="btn btn-forest btn-sm">Export Summary CSV</button>
       </div>
       <div class="grid md:grid-cols-2 gap-6 mb-8">
         <div class="stat-card p-6">
@@ -1701,9 +1715,13 @@ function openProductForm(id){
             ${p&&p.img?`<img src="${p.img}" class="w-full h-full object-cover">`:''}
           </div>
           <div class="flex-1">
-            <input type="file" id="pf-img-file" accept="image/*" onchange="onProductImagePicked(event)" class="w-full">
+            <label for="pf-img-file" class="inline-flex items-center gap-2 cursor-pointer btn btn-outline btn-sm !mb-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg>
+              Upload Image
+            </label>
+            <input type="file" id="pf-img-file" accept="image/*" onchange="onProductImagePicked(event)" class="sr-only">
             <input type="hidden" id="pf-img" value="${p?p.img:''}">
-            <div id="pf-img-note" class="text-[11px] text-gray-600 mt-1.5">Upload a JPG or PNG (max 5MB) — it will be resized automatically. In live mode images are stored in Supabase Storage; in demo mode they are embedded in this browser.</div>
+            <div id="pf-img-note" class="text-[11px] text-gray-600 mt-1.5">Click “Upload Image” to choose a JPG or PNG (max 5MB) — it will be resized automatically. In live mode images are stored in Supabase Storage; in demo mode they are embedded in this browser.</div>
           </div>
         </div>
       </div>
@@ -1781,7 +1799,7 @@ async function saveProduct(e, id){
     products.push({id:'p'+uid(), ...data});
   }
   DATA.products = products;
-  if(sb){ await sb.from('products').upsert(products.map(toRow)).catch(e=>console.warn('sync products', e)); }
+  if(sb){ try{ await sb.from('products').upsert(products.map(toRow)); }catch(e){ console.warn('sync products', e); } }
   else { ls.set('zorie_products', products); }
   document.getElementById('product-form-wrap').innerHTML = '';
   toast('Product saved');
@@ -1791,7 +1809,7 @@ async function saveProduct(e, id){
 async function deleteProduct(id){
   if(!confirm('Delete this product?')) return;
   DATA.products = DB.products.filter(p=>p.id!==id);
-  if(sb){ await sb.from('products').delete().eq('id', id).catch(e=>console.warn('sync delete', e)); }
+  if(sb){ try{ await sb.from('products').delete().eq('id', id); }catch(e){ console.warn('sync delete', e); } }
   else { ls.set('zorie_products', DATA.products); }
   toast('Product deleted');
   renderAdmin();
@@ -1801,34 +1819,51 @@ async function updateOrderStatus(id, status){
   const o = orders.find(o=>o.id===id);
   if(!o) return;
   o.status = status;
-  if(sb){ await sb.from('orders').update({status}).eq('id', id).catch(e=>console.warn('sync status', e)); }
+  if(sb){ try{ await sb.from('orders').update({status}).eq('id', id); }catch(e){ console.warn('sync status', e); } }
   else { DB.orders = orders; }
   toast('Order updated');
 }
-async function addDiscount(){
-  const code = prompt('New discount code (e.g. SUMMER20):');
-  if(!code) return;
-  const pct = Number(prompt('Percentage off (e.g. 20):','10'));
+function addDiscount(){
+  document.getElementById('nd-code').value = '';
+  document.getElementById('nd-pct').value = '';
+  document.getElementById('nd-active').checked = true;
+  openModal('discount-modal');
+  setTimeout(()=>document.getElementById('nd-code').focus(), 50);
+}
+async function createDiscount(e){
+  e.preventDefault();
+  const code = document.getElementById('nd-code').value.trim().toUpperCase();
+  const pct = Number(document.getElementById('nd-pct').value);
+  const active = document.getElementById('nd-active').checked;
+  if(!code || !pct || pct<1 || pct>100){ toast('Enter a valid code and percentage (1–100)'); return false; }
   const discounts = DB.discounts;
-  discounts.push({code:code.toUpperCase(), pct: pct||0, active:true});
+  if(discounts.some(d=>d.code.toUpperCase()===code)){ toast('That code already exists'); return false; }
+  discounts.push({code, pct, active});
   DATA.discounts = discounts;
-  if(sb){ await sb.from('discounts').upsert(discounts).catch(e=>console.warn('sync discounts', e)); }
+  if(sb){ try{ await sb.from('discounts').upsert({code, pct, active}); }catch(e){ console.warn('sync discounts', e); } }
   else { ls.set('zorie_discounts', discounts); }
-  renderAdmin();
+  closeModal('discount-modal');
+  await renderAdmin();
+  toast(active ? `Code ${code} created and activated — visible at checkout` : `Code ${code} created (inactive)`);
+  return false;
 }
 async function toggleDiscount(i){
   const discounts = DB.discounts;
+  if(!discounts[i]) return;
   discounts[i].active = !discounts[i].active;
   DATA.discounts = discounts;
-  if(sb){ await sb.from('discounts').upsert(discounts).catch(e=>console.warn('sync discounts', e)); }
+  if(sb){ try{ await sb.from('discounts').update({active: discounts[i].active}).eq('code', discounts[i].code); }catch(e){ console.warn('sync discounts', e); } }
   else { ls.set('zorie_discounts', discounts); }
+  await renderAdmin();
+  toast(discounts[i].active ? `Code ${discounts[i].code} activated — it now shows at checkout` : `Code ${discounts[i].code} deactivated — hidden from checkout`);
 }
 async function removeDiscount(i){
-  const [removed] = DB.discounts.splice(i,1);
-  DATA.discounts = DB.discounts;
-  if(sb && removed){ await sb.from('discounts').delete().eq('code', removed.code).catch(e=>console.warn('sync discounts', e)); }
-  else { ls.set('zorie_discounts', DB.discounts); }
-  renderAdmin();
+  const discounts = DB.discounts;
+  const removed = discounts.splice(i,1)[0];
+  DATA.discounts = discounts;
+  if(sb && removed){ try{ await sb.from('discounts').delete().eq('code', removed.code); }catch(e){ console.warn('sync discounts', e); } }
+  else { ls.set('zorie_discounts', discounts); }
+  await renderAdmin();
 }
 
 /* =========================================================================
