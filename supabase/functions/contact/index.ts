@@ -1,0 +1,55 @@
+// Zorie Collectibles — contact form notifier
+// Emails the owner when someone uses the contact form.
+// Secrets: RESEND_API_KEY, OWNER_EMAIL
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+);
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+
+  let body;
+  try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
+  const { name, email, message } = body || {};
+  if (!email || !message) return json({ error: "email and message required" }, 400);
+
+  const { error } = await supabase.from("contact_messages").insert({ name, email, message });
+  if (error) return json({ error: error.message }, 500);
+
+  const resend = Deno.env.get("RESEND_API_KEY") || "";
+  const owner = Deno.env.get("OWNER_EMAIL") || "";
+  if (resend && owner) {
+    try {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: Deno.env.get("EMAIL_FROM") || "Zorie Collectibles <onboarding@resend.dev>",
+          to: owner,
+          subject: `Contact message from ${name || email}`,
+          text: `From: ${name || "?"} (${email})\n\n${message}`,
+        }),
+      });
+    } catch { /* best-effort */ }
+  }
+
+  return json({ ok: true });
+});
