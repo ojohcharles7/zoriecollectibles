@@ -1,8 +1,8 @@
 /* =========================================================================
-   ZORIE COLLECTIBLES — SITE CONFIG
-   Fill in the values below. Everything is public (safe to ship to the browser).
-   When keys still contain "YOUR-" placeholders, the site runs in offline/demo
-   mode (data stays in each visitor's browser) so nothing breaks.
+   ZORIE COLLECTIBLES — SITE CONFIG (GENERATED)
+   This file is written by `build.js` from `config.template.js` + env vars
+   (.env locally, Vercel environment variables in production).
+   Do not edit config.js directly — edit config.template.js and rebuild.
    ========================================================================= */
 window.CONFIG = {
   /* Your site domain (used for canonical + sitemap). Replace after you pick a domain. */
@@ -11,20 +11,17 @@ window.CONFIG = {
   /* Supabase project (https://supabase.com — free tier).
      Project Settings → API → Project URL + anon/public key. */
   supabase: {
-    url: 'https://YOUR-PROJECT.supabase.co',
-    anonKey: 'YOUR-ANON-KEY'
+    url: '__SUPABASE_URL__',
+    anonKey: '__SUPABASE_ANON_KEY__'
   },
 
   /* Paystack merchant (https://paystack.com).
-     Dashboard → Settings → API Keys → Public key.
-     Use the TEST key (pk_test_…) while building, then switch to the LIVE key (pk_live_…). */
+     Dashboard → Settings → API Keys → Public key. */
   paystack: {
-    publicKey: 'pk_test_xxxxxxxxxxxxxxxxxxxx'
+    publicKey: '__PAYSTACK_PUBLIC_KEY__'
   },
 
-  /* OPay — pay-by-transfer to your OPay account.
-     accountNumber: the OPay account customers transfer payment to.
-     accountName:   the name on the account (shown to customers, optional). */
+  /* OPay — pay-by-transfer to your OPay account. */
   opay: {
     enabled: true,
     accountNumber: '6105601005',
@@ -32,11 +29,9 @@ window.CONFIG = {
   },
 
   /* Admin login — password only (no email field at login).
-     email:  the admin user you create in Supabase Auth (used automatically; hidden).
-             Fill this when you configure Supabase.
-     demoPassword: used only while Supabase is NOT configured (local/demo mode). */
+     email: the admin user created in Supabase Auth (used automatically; hidden). */
   admin: {
-    email: 'YOUR-ADMIN-EMAIL',
+    email: '__ADMIN_EMAIL__',
     demoPassword: 'zorie2026'
   },
 

@@ -120,6 +120,10 @@
   .toast.show{ transform:translateY(0); opacity:1; }
 
   .stat-card{ background:#fff; border:1px solid #e4dcc7; border-radius:12px; box-shadow:0 1px 3px rgba(14,42,32,.05); }
+
+  /* horizontally-scrolling tab strip (admin on mobile) — hide the scrollbar */
+  .tab-scroll{ -ms-overflow-style:none; scrollbar-width:none; }
+  .tab-scroll::-webkit-scrollbar{ display:none; }
   table.admin-table th{ text-align:left; font-size:.72rem; letter-spacing:.06em; color:#6b6552; text-transform:uppercase; font-weight:500; padding:.6rem .7rem; border-bottom:1px solid #e4dcc7; }
   table.admin-table td{ padding:.65rem .7rem; border-bottom:1px solid #efe9db; font-size:.88rem; vertical-align:middle; }
 

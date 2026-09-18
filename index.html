@@ -60,7 +60,7 @@
     </button>
 
     <a href="#home" class="serif text-xl sm:text-2xl lg:text-3xl tracking-wide text-forest-dark select-none" style="letter-spacing:.03em">
-      Zorie <span class="italic text-gold">Collectibles</span>
+      Zorie <span class="italic text-[#7D6219]">Collectibles</span>
     </a>
 
     <nav class="hidden md:flex items-center gap-8 text-[13px] tracking-wideish uppercase">
@@ -186,10 +186,10 @@
       <h3 class="serif text-2xl leading-none">Your Bag</h3>
       <div class="flex items-center gap-2 mt-1.5">
         <span class="bead !w-1.5 !h-1.5"></span>
-        <span class="text-[10px] tracking-wideish uppercase text-gold">Handcrafted with care</span>
+        <span class="text-[10px] tracking-wideish uppercase text-[#7D6219]">Handcrafted with care</span>
       </div>
     </div>
-    <button onclick="closeAllOverlays()" class="w-8 h-8 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center text-lg leading-none transition" aria-label="Close">&times;</button>
+    <button onclick="closeAllOverlays()" class="w-8 h-8 rounded-full border border-[#e4dcc7] text-gray-600 hover:text-forest hover:border-gold flex items-center justify-center text-lg leading-none transition" aria-label="Close">&times;</button>
   </div>
   <div id="cart-items" class="flex-1 overflow-y-auto px-6 py-3"></div>
   <div class="border-t border-[#eee3cf] px-6 py-6 bg-[#FBF8F1]">
@@ -197,7 +197,7 @@
       <span class="text-xs tracking-wideish uppercase text-gray-500">Subtotal</span>
       <span id="cart-subtotal" class="serif text-2xl text-forest-dark"></span>
     </div>
-    <p class="text-[11px] text-gray-400 mb-5">Delivery calculated at checkout · Free in Lagos over ₦50,000</p>
+    <p class="text-[11px] text-gray-600 mb-5">Delivery calculated at checkout · Free in Lagos over ₦50,000</p>
     <button onclick="goToCheckout()" class="btn btn-forest w-full">Checkout
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
@@ -232,7 +232,7 @@
 <!-- ============ ADMIN INVOICE MODAL ============ -->
 <div id="admin-invoice-modal" class="modal-wrap">
   <div class="modal-card relative p-6 sm:p-8 max-w-lg">
-    <button onclick="closeModal('admin-invoice-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
+    <button onclick="closeModal('admin-invoice-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-600 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
     <div id="admin-invoice-body"></div>
     <div class="flex flex-wrap gap-3 mt-6 no-print">
       <button onclick="downloadAdminInvoice()" class="btn btn-forest btn-sm">Download PNG</button>
@@ -246,7 +246,7 @@
 <!-- ============ ADMIN LOGIN MODAL ============ -->
 <div id="admin-login-modal" class="modal-wrap">
   <div class="modal-card relative p-7 sm:p-8 max-w-sm">
-    <button onclick="closeModal('admin-login-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
+    <button onclick="closeModal('admin-login-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-600 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
     <div class="text-center">
       <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
@@ -267,8 +267,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://js.paystack.co/v1/inline.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
