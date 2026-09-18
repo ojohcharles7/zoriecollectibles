@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zorie Collectibles — Jewellery That Tells Your Story</title>
+<meta name="description" content="Zorie Collectibles — handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely online with Paystack.">
+<meta name="theme-color" content="#173F30">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Zorie Collectibles">
+<meta property="og:title" content="Zorie Collectibles — Jewellery That Tells Your Story">
+<meta property="og:description" content="Handcrafted bead jewellery, gemstone bracelets and customized name pieces from Nigeria. Pay securely with Paystack.">
+<meta property="og:url" content="https://zorie.vercel.app">
+<meta property="og:image" content="https://zorie.vercel.app/favicon.svg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Zorie Collectibles — Jewellery That Tells Your Story">
+<meta name="twitter:description" content="Handcrafted bead jewellery, gemstone bracelets and customized name pieces from Nigeria.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="canonical" href="https://zorie.vercel.app">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"JewelryStore","name":"Zorie Collectibles","description":"Handcrafted bead jewellery, gemstone bracelets and customized name pieces from Nigeria.","email":"zoriecollectibles@gmail.com","address":{"@type":"PostalAddress","addressLocality":"Lagos","addressCountry":"NG"},"sameAs":["https://www.instagram.com/zories_collectibles?stkn=bWQyeHFpbzVwY3A1","https://www.facebook.com/share/1DeUiccPGU/","https://x.com/chibuzookorie8","https://vm.tiktok.com/ZS9A8nQbWyvmf-q4vCC/"]}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          forest: { DEFAULT:'#173F30', dark:'#0E2A20', light:'#2A5C46' },
+          gold: { DEFAULT:'#B8912F', light:'#D8BC72', pale:'#F1E6C8' },
+          cream: '#F7F3EA',
+          ink: '#26261F'
+        },
+        fontFamily: {
+          serif: ['"Cormorant Garamond"','serif'],
+          sans: ['Jost','sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="antialiased">
+
+<!-- ============ ANNOUNCEMENT BAR ============ -->
+<div class="bg-forest text-cream text-center text-[11px] sm:text-xs tracking-wideish py-2 px-3">
+  HANDCRAFTED IN NIGERIA · FREE LAGOS DELIVERY ON ORDERS ABOVE ₦50,000
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="sticky top-0 z-50 bg-cream/95 backdrop-blur border-b border-[#e4dcc7]">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 sm:h-[74px]">
+    <button onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 -ml-1 flex flex-col justify-center gap-[5px] rounded-md active:bg-gold-pale" aria-label="Menu">
+      <span class="block h-[1.5px] w-6 bg-ink"></span>
+      <span class="block h-[1.5px] w-6 bg-ink"></span>
+    </button>
+
+    <a href="#home" class="serif text-xl sm:text-2xl lg:text-3xl tracking-wide text-forest-dark select-none" style="letter-spacing:.03em">
+      Zorie <span class="italic text-gold">Collectibles</span>
+    </a>
+
+    <nav class="hidden md:flex items-center gap-8 text-[13px] tracking-wideish uppercase">
+      <a href="#home" class="nav-link">Home</a>
+      <a href="#shop" class="nav-link">Shop</a>
+      <a href="#about" class="nav-link">About</a>
+      <a href="#custom" class="nav-link">Customize</a>
+      <a href="#contact" class="nav-link">Contact</a>
+    </nav>
+
+    <div class="flex items-center gap-4 sm:gap-5">
+      <button onclick="openSearch()" aria-label="Search" class="hover:text-gold transition">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button onclick="openWishlistDrawer()" aria-label="Wishlist" class="relative hover:text-gold transition">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        <span id="wish-count" class="absolute -top-2 -right-2 bg-gold text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
+      </button>
+      <button onclick="openCart()" aria-label="Cart" class="relative hover:text-gold transition">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L5 3H2"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+        <span id="cart-count" class="absolute -top-2 -right-2 bg-forest text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- mobile menu -->
+  <div id="mobile-menu" class="hidden md:hidden border-t border-[#e4dcc7] bg-cream px-6 py-4 flex flex-col gap-4 text-sm tracking-wideish uppercase">
+    <a href="#home" onclick="toggleMobileMenu()">Home</a>
+    <a href="#shop" onclick="toggleMobileMenu()">Shop</a>
+    <a href="#about" onclick="toggleMobileMenu()">About</a>
+    <a href="#custom" onclick="toggleMobileMenu()">Customize</a>
+    <a href="#contact" onclick="toggleMobileMenu()">Contact</a>
+  </div>
+
+  <!-- search bar -->
+  <div id="search-bar" class="hidden border-t border-[#e4dcc7] bg-white px-4 sm:px-6 py-4">
+    <div class="max-w-3xl mx-auto flex items-center gap-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B8912F" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search-input" type="text" placeholder="Search bracelets, necklaces, pearls…" class="border-0 border-b border-[#d9cfb8] focus:outline-none focus:border-gold px-1 py-2 text-lg serif" oninput="onSearchInput(event)">
+      <button onclick="closeSearch()" class="text-xs tracking-wideish uppercase text-gray-500">Close</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MAIN APP ROOT ============ -->
+<main id="app"></main>
+
+<!-- ============ FOOTER ============ -->
+<footer id="contact" class="bg-forest-dark text-cream mt-24">
+  <div class="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">
+    <div>
+      <div class="serif text-2xl mb-4">Zorie <span class="italic text-gold-light">Collectibles</span></div>
+      <p class="text-sm text-cream/70 leading-relaxed">Beauty meets meaning. Handcrafted bead jewellery and curated accessories, designed to tell your story — proudly from Nigeria.</p>
+      <div class="flex gap-4 mt-5">
+        <a id="footer-ig" href="https://www.instagram.com/zories_collectibles?stkn=bWQyeHFpbzVwY3A1" target="_blank" class="w-9 h-9 border border-cream/30 rounded-full flex items-center justify-center hover:border-gold hover:text-gold transition" aria-label="Instagram">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+        </a>
+        <a id="footer-fb" href="https://www.facebook.com/share/1DeUiccPGU/" target="_blank" class="w-9 h-9 border border-cream/30 rounded-full flex items-center justify-center hover:border-gold hover:text-gold transition" aria-label="Facebook">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 9h3V6h-3a4 4 0 0 0-4 4v2H7v3h3v6h3v-6h3l1-3h-4v-2a1 1 0 0 1 1-1z"/></svg>
+        </a>
+        <a id="footer-x" href="https://x.com/chibuzookorie8" target="_blank" class="w-9 h-9 border border-cream/30 rounded-full flex items-center justify-center hover:border-gold hover:text-gold transition" aria-label="X (Twitter)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231z"/></svg>
+        </a>
+        <a id="footer-tiktok" href="https://vm.tiktok.com/ZS9A8nQbWyvmf-q4vCC/" target="_blank" class="w-9 h-9 border border-cream/30 rounded-full flex items-center justify-center hover:border-gold hover:text-gold transition" aria-label="TikTok">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 4v9.5a3.5 3.5 0 1 1-3-3.46"/><path d="M14 4c0 2.5 2 4.5 4.5 4.5"/></svg>
+        </a>
+      </div>
+    </div>
+    <div>
+      <div class="text-xs tracking-wideish uppercase text-gold-light mb-4">Shop</div>
+      <ul class="space-y-2 text-sm text-cream/75">
+        <li><a href="#shop?cat=Men%27s%20Bracelets" class="hover:text-gold-light">Men's Bracelets</a></li>
+        <li><a href="#shop?cat=Customized%20Name%20Bracelets" class="hover:text-gold-light">Customized Name Bracelets</a></li>
+        <li><a href="#shop?cat=Necklace%20%26%20Bracelet%20Sets" class="hover:text-gold-light">Necklace & Bracelet Sets</a></li>
+        <li><a href="#shop?cat=Pearl%20Collection" class="hover:text-gold-light">Pearl Collection</a></li>
+        <li><a href="#shop?cat=Gift%20Sets" class="hover:text-gold-light">Gift Sets</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="text-xs tracking-wideish uppercase text-gold-light mb-4">Company</div>
+      <ul class="space-y-2 text-sm text-cream/75">
+        <li><a href="#about" class="hover:text-gold-light">About Us</a></li>
+        <li><a href="#track" class="hover:text-gold-light">Track Order</a></li>
+        <li><a href="#policies/shipping" class="hover:text-gold-light">Shipping &amp; Returns</a></li>
+        <li><a href="#faq" class="hover:text-gold-light">FAQ</a></li>
+        <li><a href="#contact" class="hover:text-gold-light">Contact Us</a></li>
+        <li><a href="#policies/privacy" class="hover:text-gold-light">Privacy Policy</a></li>
+        <li><a href="#policies/terms" class="hover:text-gold-light">Terms of Service</a></li>
+        <li><a href="#" onclick="openAdminLogin();return false;" class="hover:text-gold-light">Admin</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="text-xs tracking-wideish uppercase text-gold-light mb-4">Get in touch</div>
+      <ul class="space-y-2 text-sm text-cream/75">
+        <li id="footer-phone">Lagos, Nigeria</li>
+        <li><a id="footer-email" href="mailto:zoriecollectibles@gmail.com" class="hover:text-gold-light">zoriecollectibles@gmail.com</a></li>
+        <li><a id="footer-wa" href="https://wa.me/2348169577178" target="_blank" class="hover:text-gold-light">WhatsApp Us</a></li>
+      </ul>
+      <div class="mt-5">
+        <label class="text-cream/60">Join our newsletter</label>
+        <form onsubmit="return subscribeNewsletter(event)" class="flex mt-1">
+          <input type="email" required placeholder="Email address" class="!bg-transparent !border-cream/30 text-cream text-sm placeholder:text-cream/40" id="newsletter-email">
+          <button class="btn btn-gold btn-xs">Join</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="border-t border-cream/10 py-5 text-center text-[11px] tracking-wide text-cream/50">
+    © <span id="footer-year"></span> Zorie Collectibles. All rights reserved. · Payments secured by Paystack
+  </div>
+</footer>
+
+<!-- WhatsApp float -->
+<a id="wa-float" href="https://wa.me/2348169577178" target="_blank" class="fixed bottom-6 right-6 z-40 bg-[#25D366] w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition" aria-label="Chat on WhatsApp">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.87.5 3.7 1.44 5.3L2 22l4.9-1.53a9.9 9.9 0 0 0 5.14 1.43h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.87 9.87 0 0 0 12.04 2zm5.8 14.14c-.24.68-1.4 1.3-1.93 1.35-.5.06-1.1.08-1.78-.11-.41-.12-.94-.3-1.6-.6-2.83-1.22-4.67-4.07-4.81-4.26-.14-.19-1.15-1.53-1.15-2.92s.73-2.07.98-2.35c.25-.28.55-.35.73-.35h.53c.17 0 .4-.06.63.48.24.56.8 1.95.87 2.09.07.14.11.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.48-.14.14-.29.29-.12.57.17.28.75 1.24 1.61 2 1.11.99 2.04 1.3 2.32 1.44.28.14.44.12.6-.07.17-.19.71-.83.9-1.11.19-.28.38-.23.63-.14.26.09 1.63.77 1.9.91.28.14.46.21.53.33.07.12.07.68-.16 1.36z"/></svg>
+</a>
+
+<!-- ============ CART DRAWER ============ -->
+<div id="overlay" class="overlay" onclick="closeAllOverlays()"></div>
+<aside id="cart-drawer" class="drawer">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee3cf]">
+    <div>
+      <h3 class="serif text-2xl leading-none">Your Bag</h3>
+      <div class="flex items-center gap-2 mt-1.5">
+        <span class="bead !w-1.5 !h-1.5"></span>
+        <span class="text-[10px] tracking-wideish uppercase text-gold">Handcrafted with care</span>
+      </div>
+    </div>
+    <button onclick="closeAllOverlays()" class="w-8 h-8 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center text-lg leading-none transition" aria-label="Close">&times;</button>
+  </div>
+  <div id="cart-items" class="flex-1 overflow-y-auto px-6 py-3"></div>
+  <div class="border-t border-[#eee3cf] px-6 py-6 bg-[#FBF8F1]">
+    <div class="flex items-end justify-between mb-1">
+      <span class="text-xs tracking-wideish uppercase text-gray-500">Subtotal</span>
+      <span id="cart-subtotal" class="serif text-2xl text-forest-dark"></span>
+    </div>
+    <p class="text-[11px] text-gray-400 mb-5">Delivery calculated at checkout · Free in Lagos over ₦50,000</p>
+    <button onclick="goToCheckout()" class="btn btn-forest w-full">Checkout
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+    <button onclick="closeAllOverlays()" class="btn btn-outline w-full mt-3 text-sm">Continue Shopping</button>
+  </div>
+</aside>
+
+<!-- ============ WISHLIST DRAWER ============ -->
+<aside id="wishlist-drawer" class="drawer">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee3cf]">
+    <h3 class="serif text-2xl">Wishlist</h3>
+    <button onclick="closeAllOverlays()" class="text-2xl leading-none">&times;</button>
+  </div>
+  <div id="wishlist-items" class="flex-1 overflow-y-auto px-6 py-4"></div>
+</aside>
+
+<!-- ============ PRODUCT QUICK VIEW MODAL ============ -->
+<div id="product-modal" class="modal-wrap">
+  <div class="modal-card relative" id="product-modal-content"></div>
+</div>
+
+<!-- ============ CHECKOUT MODAL ============ -->
+<div id="checkout-modal" class="modal-wrap">
+  <div class="modal-card relative p-6 sm:p-10" id="checkout-modal-content"></div>
+</div>
+
+<!-- ============ INVOICE MODAL ============ -->
+<div id="invoice-modal" class="modal-wrap">
+  <div class="modal-card relative p-6 sm:p-10" id="invoice-modal-content"></div>
+</div>
+
+<!-- ============ ADMIN INVOICE MODAL ============ -->
+<div id="admin-invoice-modal" class="modal-wrap">
+  <div class="modal-card relative p-6 sm:p-8 max-w-lg">
+    <button onclick="closeModal('admin-invoice-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
+    <div id="admin-invoice-body"></div>
+    <div class="flex flex-wrap gap-3 mt-6 no-print">
+      <button onclick="downloadAdminInvoice()" class="btn btn-forest btn-sm">Download PNG</button>
+      <button onclick="shareAdminInvoice()" class="btn btn-gold btn-sm">Share</button>
+      <a id="admin-invoice-wa" href="#" target="_blank" class="btn btn-outline btn-sm">Send via WhatsApp</a>
+      <button onclick="window.print()" class="btn btn-outline btn-sm">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN LOGIN MODAL ============ -->
+<div id="admin-login-modal" class="modal-wrap">
+  <div class="modal-card relative p-7 sm:p-8 max-w-sm">
+    <button onclick="closeModal('admin-login-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-400 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
+    <div class="text-center">
+      <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      </div>
+      <h3 class="serif text-xl mb-1">Admin Sign In</h3>
+      <p class="text-[11px] text-gray-500 mb-5">For the shop owner only.</p>
+    </div>
+    <form onsubmit="return adminLogin(event)">
+      <label>Password</label>
+      <input type="password" id="admin-password" placeholder="Enter admin password" required>
+      <button class="btn btn-forest btn-sm w-full mt-4">Enter Dashboard</button>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast fixed bottom-6 left-6 z-[100] bg-forest-dark text-cream px-5 py-3 text-sm tracking-wide"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
