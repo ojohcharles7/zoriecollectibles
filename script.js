@@ -104,13 +104,13 @@ const DB = {
     if(sb && Array.isArray(v) && v.some(p=>String(p.img||'').startsWith('data:'))) v = DEFAULT_PRODUCTS;
     return (DATA.products = v);
   },
-  set products(v){ DATA.products = v; if(sb){ sb.from('products').upsert(v.map(toRow)).then(()=>{}).catch(e=>console.warn('sync products', e)); } else { ls.set('zorie_products', v); } },
+  set products(v){ DATA.products = v; ls.set('zorie_products', v); if(sb){ sb.from('products').upsert(v.map(toRow)).then(()=>{}).catch(e=>console.warn('sync products', e)); } },
   get orders(){ return DATA.orders || (DATA.orders = ls.get('zorie_orders', [])); },
-  set orders(v){ DATA.orders = v; if(!sb){ ls.set('zorie_orders', v); } },
+  set orders(v){ DATA.orders = v; ls.set('zorie_orders', v); if(sb){ sb.from('orders').upsert(v.map(normalizeOrder)).then(()=>{}).catch(e=>console.warn('sync orders', e)); } },
   get discounts(){ return DATA.discounts || (DATA.discounts = ls.get('zorie_discounts', DEFAULT_DISCOUNTS)); },
-  set discounts(v){ DATA.discounts = v; if(sb){ sb.from('discounts').upsert(v).then(()=>{}).catch(e=>console.warn('sync discounts', e)); } else { ls.set('zorie_discounts', v); } },
+  set discounts(v){ DATA.discounts = v; ls.set('zorie_discounts', v); if(sb){ sb.from('discounts').upsert(v).then(()=>{}).catch(e=>console.warn('sync discounts', e)); } },
   get subscribers(){ return DATA.subscribers || (DATA.subscribers = ls.get('zorie_subs', [])); },
-  set subscribers(v){ DATA.subscribers = v; if(!sb){ ls.set('zorie_subs', v); } },
+  set subscribers(v){ DATA.subscribers = v; ls.set('zorie_subs', v); if(sb){ sb.from('subscribers').upsert(v.map(s=>({email:s}))).then(()=>{}).catch(e=>console.warn('sync subs', e)); } },
   get cart(){ return DATA.cart; },
   set cart(v){ DATA.cart = v; ls.set('zorie_cart', v); updateBadges(); },
   get wishlist(){ return DATA.wishlist; },
@@ -1839,9 +1839,7 @@ async function createDiscount(e){
   const discounts = DB.discounts;
   if(discounts.some(d=>d.code.toUpperCase()===code)){ toast('That code already exists'); return false; }
   discounts.push({code, pct, active});
-  DATA.discounts = discounts;
-  if(sb){ try{ await sb.from('discounts').upsert({code, pct, active}); }catch(e){ console.warn('sync discounts', e); } }
-  else { ls.set('zorie_discounts', discounts); }
+  DB.discounts = discounts;
   closeModal('discount-modal');
   await renderAdmin();
   toast(active ? `Code ${code} created and activated — visible at checkout` : `Code ${code} created (inactive)`);
@@ -1851,18 +1849,15 @@ async function toggleDiscount(i){
   const discounts = DB.discounts;
   if(!discounts[i]) return;
   discounts[i].active = !discounts[i].active;
-  DATA.discounts = discounts;
-  if(sb){ try{ await sb.from('discounts').update({active: discounts[i].active}).eq('code', discounts[i].code); }catch(e){ console.warn('sync discounts', e); } }
-  else { ls.set('zorie_discounts', discounts); }
+  DB.discounts = discounts;
   await renderAdmin();
   toast(discounts[i].active ? `Code ${discounts[i].code} activated — it now shows at checkout` : `Code ${discounts[i].code} deactivated — hidden from checkout`);
 }
 async function removeDiscount(i){
   const discounts = DB.discounts;
   const removed = discounts.splice(i,1)[0];
-  DATA.discounts = discounts;
+  DB.discounts = discounts;
   if(sb && removed){ try{ await sb.from('discounts').delete().eq('code', removed.code); }catch(e){ console.warn('sync discounts', e); } }
-  else { ls.set('zorie_discounts', discounts); }
   await renderAdmin();
 }
 
