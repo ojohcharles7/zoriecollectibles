@@ -1119,6 +1119,16 @@ async function trackOrder(){
    ADMIN (Supabase Auth)
    ========================================================================= */
 function openAdminLogin(){ openModal('admin-login-modal'); }
+function togglePasswordVisibility(inputId, btn){
+  const el = document.getElementById(inputId);
+  if(!el) return;
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  const open = btn.querySelector('.eye-open'), closed = btn.querySelector('.eye-closed');
+  if(open) open.classList.toggle('hidden', show);
+  if(closed) closed.classList.toggle('hidden', !show);
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+}
 async function adminLogin(e){
   e.preventDefault();
   const pw = document.getElementById('admin-password').value;
