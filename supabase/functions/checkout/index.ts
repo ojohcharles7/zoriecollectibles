@@ -86,38 +86,30 @@ async function callerUserId(req) {
   }
 }
 
+// Queue a transactional email. The scheduled `send-emails` function drains this
+// slowly (staying within the provider's free daily budget) so nothing is dropped.
+async function queueEmail(recipient, subject, body) {
+  if (!recipient) return;
+  const { error } = await supabase.from("email_queue").insert({ recipient, subject, body });
+  if (error) console.error("queue email failed:", error.message);
+}
+
 async function sendNotifications(row) {
-  const resend = Deno.env.get("RESEND_API_KEY") || "";
   const owner = Deno.env.get("OWNER_EMAIL") || "";
-  if (!resend || !owner) return;
   const c = row.customer || {};
   const items = (row.items || []).map((i) => `- ${i.qty} x ${i.name}`).join("\n");
   const paid = row.paymethod === "paystack" ? "Paystack" : row.paymethod === "opay" ? "OPay" : row.paymethod;
   const fmt = (n) => "₦" + Number(n).toLocaleString("en-NG");
-  try {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: Deno.env.get("EMAIL_FROM") || "Zorie Collectibles <onboarding@resend.dev>",
-        to: owner,
-        subject: `New order ${row.id} — Zorie Collectibles`,
-        text: `New order ${row.id}\nTotal: ${fmt(row.total)}\nPayment: ${paid}${row.payref ? ` (ref ${row.payref})` : ""}\n\nCustomer: ${c.name} (${c.phone})\nEmail: ${c.email}\nAddress: ${c.address}, ${c.city} (${c.method})\n\nItems:\n${items}`,
-      }),
-    });
-    if (c.email) {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: Deno.env.get("EMAIL_FROM") || "Zorie Collectibles <onboarding@resend.dev>",
-          to: c.email,
-          subject: `Order confirmed — ${row.id} · Zorie Collectibles`,
-          text: `Thank you ${c.name}!\n\nYour order ${row.id} has been received.\nTotal: ${fmt(row.total)}\nPayment: ${paid}\n\nWe will contact you shortly about delivery.\n\n— Zorie Collectibles`,
-        }),
-      });
-    }
-  } catch { /* emails are best-effort */ }
+  if (owner) {
+    await queueEmail(owner,
+      `New order ${row.id} — Zorie Collectibles`,
+      `New order ${row.id}\nTotal: ${fmt(row.total)}\nPayment: ${paid}${row.payref ? ` (ref ${row.payref})` : ""}\n\nCustomer: ${c.name} (${c.phone})\nEmail: ${c.email}\nAddress: ${c.address}, ${c.city} (${c.method})\n\nItems:\n${items}`);
+  }
+  if (c.email) {
+    await queueEmail(c.email,
+      `Order confirmed — ${row.id} · Zorie Collectibles`,
+      `Thank you ${c.name}!\n\nYour order ${row.id} has been received.\nTotal: ${fmt(row.total)}\nPayment: ${paid}\n\nWe will contact you shortly about delivery.\n\n— Zorie Collectibles`);
+  }
 }
 
 async function paystackVerified(reference, secret) {
@@ -241,21 +233,11 @@ async function opayProofSubmitted(orderId) {
     .single();
   if (error) return json({ error: error.message }, 500);
 
-  const resend = Deno.env.get("RESEND_API_KEY") || "";
   const owner = Deno.env.get("OWNER_EMAIL") || "";
-  if (resend && owner) {
-    try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: Deno.env.get("EMAIL_FROM") || "Zorie Collectibles <onboarding@resend.dev>",
-          to: owner,
-          subject: `Payment proof received — order ${orderId}`,
-          text: `A customer has marked order ${orderId} as paid by OPay transfer. Please check the money in your OPay account (6105601005), then update the order to "Processing" in the admin dashboard.`,
-        }),
-      });
-    } catch { /* best-effort */ }
+  if (owner) {
+    await queueEmail(owner,
+      `Payment proof received — order ${orderId}`,
+      `A customer has marked order ${orderId} as paid by OPay transfer. Please check the money in your OPay account (6105601005), then update the order to "Processing" in the admin dashboard.`);
   }
   return json({ ok: true, order: data });
 }
@@ -299,6 +281,35 @@ async function listCustomers(req) {
   return json({ ok: true, customers: rows });
 }
 
+// Admin-only: daily email budget usage + pending queue count.
+async function emailStats(req) {
+  const userId = await callerUserId(req);
+  if (!userId) return json({ error: "unauthorized" }, 401);
+  const { data: me, error: meErr } = await supabase.auth.admin.getUserById(userId);
+  const appMeta = me?.user?.app_metadata || {};
+  const userMeta = me?.user?.user_metadata || {};
+  const isAdmin = appMeta.role === "admin" || userMeta.role === "admin";
+  if (meErr || !me || !isAdmin) return json({ error: "forbidden" }, 403);
+
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const [sent, pending, failed] = await Promise.all([
+    supabase.from("email_queue").select("id", { count: "exact", head: true })
+      .eq("status", "sent").gte("sent_at", startOfDay.toISOString()),
+    supabase.from("email_queue").select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    supabase.from("email_queue").select("id", { count: "exact", head: true })
+      .eq("status", "failed"),
+  ]);
+  return json({
+    ok: true,
+    sentToday: sent.count || 0,
+    pending: pending.count || 0,
+    failed: failed.count || 0,
+    budget: Number(Deno.env.get("DAILY_EMAIL_BUDGET") || "50"),
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -311,6 +322,9 @@ Deno.serve(async (req) => {
   }
   if (body && body.method === "customers") {
     return await listCustomers(req);
+  }
+  if (body && body.method === "email-stats") {
+    return await emailStats(req);
   }
   if (body && body.method === "opay") {
     const order = body.order || {};

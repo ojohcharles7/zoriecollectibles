@@ -1,0 +1,17 @@
+# Zorie Collectibles — Supabase CLI configuration
+project_id = "zoriecollectables"
+
+[functions.checkout]
+verify_jwt = false
+
+[functions.seed-catalog]
+verify_jwt = false
+
+[functions.contact]
+verify_jwt = false
+
+# Transactional email sender — runs every 15 minutes and drains the email queue
+# within the daily budget (see DAILY_EMAIL_BUDGET secret).
+[functions.send-emails]
+verify_jwt = false
+schedule = "*/15 * * * *"

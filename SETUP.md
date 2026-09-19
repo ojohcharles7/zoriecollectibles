@@ -101,12 +101,13 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 supabase functions deploy checkout --no-verify-jwt
 supabase functions deploy seed-catalog contact
+supabase functions deploy send-emails --no-verify-jwt
 ```
 
 > The `checkout` function was updated for customer accounts (it links each order
-> to the signed-in customer, powers private order tracking, and lists registered
-> customers for the admin's "My Customers" tab). Re-run the `checkout` deploy
-> command whenever you pull this change.
+> to the signed-in customer, powers private order tracking, lists registered
+> customers for the admin's "My Customers" tab, and reports email status). Re-run
+> the `checkout` deploy command whenever you pull this change.
 
 > `--no-verify-jwt` lets both your browser and the OPay callback reach `checkout`
 > without needing a login token.
@@ -118,9 +119,25 @@ Then set the function secrets (Dashboard → **Edge Functions → each function 
 | `checkout`   | `PAYSTACK_SECRET_KEY` (Paystack **secret** key), `OPAY_MCH_ID`, `OPAY_PUBLIC_KEY`, `OPAY_PRIVATE_KEY`, `OPAY_ENV` (`sandbox` or `live`), `SITE_URL` (your live domain, e.g. `https://zorie.vercel.app`), `RESEND_API_KEY`, `OWNER_EMAIL`, optional `EMAIL_FROM` |
 | `seed-catalog` | none (auto-provided)                                                    |
 | `contact`    | `RESEND_API_KEY`, `OWNER_EMAIL`                                          |
+| `send-emails`| `RESEND_API_KEY`, optional `EMAIL_FROM`, optional `DAILY_EMAIL_BUDGET` (default `50`) |
 
 Create `RESEND_API_KEY` free at https://resend.com. `OWNER_EMAIL` is where you get
 new-order alerts.
+
+### Transactional email (queued, rate-safe)
+
+Order confirmations, order alerts and contact messages are **queued** in the
+`email_queue` table and sent slowly by the **`send-emails`** scheduled function
+(every 15 minutes) so the store never trips Resend's free daily limit and never
+silently drops an email. The free Resend plan allows **100 emails/day** (3,000/mo);
+the default daily budget is **50** so there is comfortable headroom. The admin
+Dashboard shows emails sent today / pending / failed and the remaining budget.
+
+- **Raise/lower the budget** → set the `DAILY_EMAIL_BUDGET` secret on `send-emails`.
+- **Scale up (later)** → buy and verify your own domain in Resend (SPF/DKIM/DMARC),
+  set `EMAIL_FROM` to `Zorie Collectibles <orders@yourdomain.com>`, and upgrade to
+  **Resend Pro** ($20/mo, 50,000 emails, no daily cap) — or **Amazon SES** for very
+  large volume. Emails then send almost immediately instead of on the 15-min timer.
 
 ### Upload the product images
 
@@ -181,6 +198,7 @@ When everything works, flip to **live**: set `OPAY_ENV=live` secret + live OPay 
 - `vercel.json` — Vercel routing config
 - `opay-callback.html` — OPay's return page (hands payment back to the store)
 - `supabase/schema.sql` — database tables + security rules
-- `supabase/functions/checkout` — saves orders, OPay create/confirm + customer tracking, emails you + customer
+- `supabase/functions/checkout` — saves orders, OPay create/confirm + customer tracking, queues emails, reports email status
 - `supabase/functions/seed-catalog` — first-run catalog import
-- `supabase/functions/contact` — emails you when a customer uses the contact form
+- `supabase/functions/contact` — saves contact messages + queues the owner alert
+- `supabase/functions/send-emails` — scheduled email sender (drains `email_queue`, respects the daily budget)

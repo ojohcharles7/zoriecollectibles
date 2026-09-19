@@ -22,6 +22,13 @@ function json(obj, status = 200) {
   });
 }
 
+// Queue a transactional email — the scheduled `send-emails` function sends it.
+async function queueEmail(recipient, subject, body) {
+  if (!recipient) return;
+  const { error } = await supabase.from("email_queue").insert({ recipient, subject, body });
+  if (error) console.error("queue email failed:", error.message);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -34,21 +41,11 @@ Deno.serve(async (req) => {
   const { error } = await supabase.from("contact_messages").insert({ name, email, message });
   if (error) return json({ error: error.message }, 500);
 
-  const resend = Deno.env.get("RESEND_API_KEY") || "";
   const owner = Deno.env.get("OWNER_EMAIL") || "";
-  if (resend && owner) {
-    try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: Deno.env.get("EMAIL_FROM") || "Zorie Collectibles <onboarding@resend.dev>",
-          to: owner,
-          subject: `Contact message from ${name || email}`,
-          text: `From: ${name || "?"} (${email})\n\n${message}`,
-        }),
-      });
-    } catch { /* best-effort */ }
+  if (owner) {
+    await queueEmail(owner,
+      `Contact message from ${name || email}`,
+      `From: ${name || "?"} (${email})\n\n${message}`);
   }
 
   return json({ ok: true });

@@ -59,6 +59,22 @@ create table if not exists public.contact_messages (
   created_at timestamptz default now()
 );
 
+-- EMAIL QUEUE (transactional emails wait here; drained by send-emails function)
+create table if not exists public.email_queue (
+  id         uuid primary key default gen_random_uuid(),
+  recipient  text not null,
+  subject    text not null,
+  body       text not null,
+  status     text not null default 'pending' check (status in ('pending','sent','failed')),
+  attempts   integer not null default 0,
+  error      text not null default '',
+  created_at timestamptz default now(),
+  sent_at    timestamptz
+);
+
+create index if not exists email_queue_status_idx on public.email_queue (status, created_at);
+create index if not exists email_queue_sent_at_idx on public.email_queue (sent_at);
+
 -- PRODUCT IMAGE STORAGE (bucket for uploaded product photos)
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
@@ -86,6 +102,7 @@ alter table public.orders enable row level security;
 alter table public.discounts enable row level security;
 alter table public.subscribers enable row level security;
 alter table public.contact_messages enable row level security;
+alter table public.email_queue enable row level security;
 
 -- products: anyone can read; only the owner (admin claim) can write
 drop policy if exists "products public read"   on public.products;

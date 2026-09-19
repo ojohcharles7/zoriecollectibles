@@ -1493,6 +1493,12 @@ function statusBadge(s){
   else if(t==='cancelled') cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s}</span>`;
 }
+function loadEmailStats(){
+  if(!sb) return Promise.resolve(null);
+  return sb.functions.invoke('checkout', { body:{ method:'email-stats' } })
+    .then(res => (res && !res.error && res.data && res.data.ok) ? res.data : null)
+    .catch(()=>null);
+}
 function downloadCSV(filename, rows){
   const csv = rows.map(r=>r.map(cell=>'"'+String(cell==null?'':cell).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
@@ -1791,7 +1797,30 @@ async function renderAdmin(){
               <span class="whitespace-nowrap">${naira(o.total)} <span class="text-[10px] text-gray-600 ml-1">${o.status}</span></span>
             </div>`).join('') : '<div class="text-sm text-gray-600">No orders yet.</div>'}
         </div>
+      </div>
+      <div class="mt-6 stat-card p-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm text-gray-500">Transactional Email</div>
+          <span class="text-xs text-gray-600">daily budget</span>
+        </div>
+        <div id="email-stats-box" class="text-sm text-gray-600">Loading…</div>
       </div>`;
+    loadEmailStats().then(es=>{
+      const box = document.getElementById('email-stats-box');
+      if(!box) return;
+      if(!es){
+        box.innerHTML = 'Email status is available when Supabase is connected and the checkout function is redeployed.';
+        return;
+      }
+      const pct = es.budget ? Math.min(100, Math.round(es.sentToday/es.budget*100)) : 0;
+      box.innerHTML = `
+        <div class="h-2 bg-[#f1ebdb] rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
+        <div class="space-y-1">
+          <div class="flex justify-between"><span>Sent today</span><b>${es.sentToday} / ${es.budget}</b></div>
+          <div class="flex justify-between"><span>Pending (waiting to send)</span><b>${es.pending}</b></div>
+          <div class="flex justify-between"><span>Failed (won't send)</span><b class="${es.failed?'text-red-500':'text-gray-600'}">${es.failed}</b></div>
+        </div>`;
+    });
   }
 
   else if(adminTab==='products'){
