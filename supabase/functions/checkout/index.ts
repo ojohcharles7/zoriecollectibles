@@ -66,7 +66,7 @@ function orderRow(order, reference, userId) {
     total: Number(order.total) || 0,
     paymethod: order.paymethod || order.payMethod || "",
     payref: reference || order.payref || "",
-    status: order.status || (reference ? "Processing" : "Awaiting Payment"),
+    status: order.status || (reference ? "Being Handcrafted" : "Awaiting Payment"),
     user_id: userId || null,
   };
 }
@@ -215,7 +215,7 @@ async function opayConfirm(order, reference, userId) {
   const row = orderRow(order, reference, userId);
   row.paymethod = "opay";
   row.payref = reference;
-  row.status = "Processing";
+  row.status = "Being Handcrafted";
   const { data, error } = await supabase.from("orders").upsert(row).select().single();
   if (error) return json({ error: error.message }, 500);
   await sendNotifications(row);
@@ -227,7 +227,7 @@ async function opayProofSubmitted(orderId) {
   if (!orderId) return json({ error: "orderId required" }, 400);
   const { data, error } = await supabase
     .from("orders")
-    .update({ status: "Payment Proof Submitted" })
+    .update({ status: "Verifying Your Payment" })
     .eq("id", orderId)
     .select()
     .single();
@@ -237,7 +237,7 @@ async function opayProofSubmitted(orderId) {
   if (owner) {
     await queueEmail(owner,
       `Payment proof received — order ${orderId}`,
-      `A customer has marked order ${orderId} as paid by OPay transfer. Please check the money in your OPay account (6105601005), then update the order to "Processing" in the admin dashboard.`);
+      `A customer has marked order ${orderId} as paid by OPay transfer. Please check the money in your OPay account (6105601005), then update the order to "Being Handcrafted" in the admin dashboard.`);
   }
   return json({ ok: true, order: data });
 }

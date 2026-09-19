@@ -95,7 +95,7 @@ function normalizeOrder(o){
     delivery: Number(o.delivery)||0, total: Number(o.total)||0,
     paymethod: o.paymethod || o.payMethod || '', payref: o.payRef || o.payref || '',
     user_id: o.user_id || null,
-    status: o.status || 'Processing' };
+    status: o.status || 'Being Handcrafted' };
 }
 
 const DB = {
@@ -438,13 +438,25 @@ function setAuthTab(mode){
   }
 }
 
+/* Shared password field (show/hide toggle) — used by sign-in & sign-up forms. */
+function passwordFieldHTML(inputId, attrs){
+  return `
+    <div class="relative">
+      <input type="password" id="${inputId}" ${attrs||''} style="padding-right:2.6rem">
+      <button type="button" onclick="togglePasswordVisibility('${inputId}', this)" aria-label="Show password" class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-forest transition rounded-md">
+        <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>`;
+}
+
 function signInFormHTML(){
   return `
   <form onsubmit="return doSignIn(event)">
     <label>Email</label>
-    <input type="email" id="si-email" placeholder="you@example.com" required>
+    <input type="email" id="si-email" placeholder="you@example.com" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label>Password</label>
-    <input type="password" id="si-pw" required>
+    ${passwordFieldHTML('si-pw', 'required autocomplete="current-password"')}
     <div id="auth-err" class="text-xs mt-2"></div>
     <button class="btn btn-forest w-full mt-4">Sign In</button>
   </form>
@@ -458,20 +470,14 @@ function signUpFormHTML(){
   return `
   <form onsubmit="return doSignUp(event)">
     <div class="grid sm:grid-cols-2 gap-4">
-      <div><label>Full Name</label><input type="text" id="su-name" placeholder="Your name" required></div>
-      <div><label>Phone Number</label><input type="tel" id="su-phone" placeholder="e.g. 0816 957 7178" required></div>
+      <div><label>Full Name</label><input type="text" id="su-name" placeholder="Your name" required autocomplete="name"></div>
+      <div><label>Phone Number</label><input type="tel" id="su-phone" placeholder="e.g. 0816 957 7178" required autocomplete="tel" inputmode="tel"></div>
     </div>
     <label>Email</label>
-    <input type="email" id="su-email" placeholder="you@example.com" required>
+    <input type="email" id="su-email" placeholder="you@example.com" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label>Password</label>
-    <div class="relative">
-      <input type="password" id="su-pw" required style="padding-right:2.6rem">
-      <button type="button" onclick="togglePasswordVisibility('su-pw', this)" aria-label="Show password" class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-forest transition rounded-md">
-        <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-        <svg class="eye-closed hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-      </button>
-    </div>
-    <p class="text-[11px] text-gray-500 mt-1">Must start with a special character (!, @, #, $, %, ^, &, *) and be at least 6 characters.</p>
+    ${passwordFieldHTML('su-pw', 'required autocomplete="new-password" aria-describedby="su-pw-hint"')}
+    <p class="text-[11px] text-gray-500 mt-1" id="su-pw-hint">Must start with a special character (!, @, #, $, %, ^, &, *) and be at least 6 characters.</p>
     <div id="auth-err" class="text-xs mt-2"></div>
     <button class="btn btn-forest w-full mt-4">Create Account</button>
   </form>
@@ -501,12 +507,12 @@ function orderStatusBadge(s){
   const t = (s||'').toLowerCase();
   let cls = 'bg-gray-100 text-gray-600';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
-  else if(t.includes('proof')||t.includes('paid')) cls = 'bg-sky-100 text-sky-800';
-  else if(t==='processing') cls = 'bg-gold-pale text-forest-dark';
-  else if(t==='shipped') cls = 'bg-forest text-cream';
-  else if(t==='delivered') cls = 'bg-green-600 text-white';
-  else if(t==='cancelled') cls = 'bg-red-100 text-red-700';
-  return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s||'Processing'}</span>`;
+  else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
+  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-dark';
+  else if(t.includes('way')) cls = 'bg-forest text-cream';
+  else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
+  else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
+  return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s||'Being Handcrafted'}</span>`;
 }
 
 async function renderAccount(){
@@ -548,32 +554,27 @@ async function renderAccount(){
         <a href="#shop" class="btn btn-forest btn-sm">Start Shopping</a>
       </div>` :
       `<div class="space-y-4">
-        ${orders.map((o,i)=>`
-        <div class="border border-[#e4dcc7] p-5">
-          <div onclick="toggleOrderDetail(${i})" class="cursor-pointer">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
-              ${orderStatusBadge(o.status)}
-            </div>
-            <div class="text-xs text-gray-500 mb-2">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
-            <div class="text-sm text-gray-700 space-y-0.5">
-              ${(o.items||[]).slice(0,2).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
-              ${(o.items||[]).length>2 ? `<div class="text-xs text-gray-400 mt-1">+${(o.items||[]).length-2} more item(s)</div>`:''}
-            </div>
+        ${orders.map(o=>`
+        <a href="#order?id=${encodeURIComponent(o.id)}" class="block border border-[#e4dcc7] p-5 hover:border-gold transition">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
+            ${orderStatusBadge(o.status)}
+          </div>
+          <div class="text-xs text-gray-500 mb-2">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+          <div class="text-sm text-gray-700 space-y-0.5">
+            ${(o.items||[]).slice(0,2).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
+            ${(o.items||[]).length>2 ? `<div class="text-xs text-gray-400 mt-1">+${(o.items||[]).length-2} more item(s)</div>`:''}
           </div>
           <div class="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-[#eee3cf]">
             <span class="text-sm">${orderPayLabel(o)}</span>
             <div class="flex items-center gap-3">
               <span class="serif text-lg text-forest-dark">${naira(o.total)}</span>
-              <button type="button" onclick="toggleOrderDetail(${i})" class="flex items-center gap-1 text-xs text-gold underline">Details
-                <svg id="order-chev-${i}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
+              <span class="flex items-center gap-1 text-xs text-gold underline">View
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </span>
             </div>
           </div>
-          <div id="order-detail-${i}" class="hidden mt-4 pt-4 border-t border-[#eee3cf]">
-            ${orderDetailHTML(o)}
-          </div>
-        </div>`).join('')}
+        </a>`).join('')}
       </div>`}
   </section>`;
 }
@@ -585,49 +586,8 @@ function orderPayLabel(o){
   return 'OPay / Bank';
 }
 
-function toggleOrderDetail(i){
-  const el = document.getElementById('order-detail-' + i);
-  if(!el) return;
-  el.classList.toggle('hidden');
-  const ch = document.getElementById('order-chev-' + i);
-  if(ch) ch.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
-}
-
-function orderDetailHTML(o){
-  const c = o.customer || {};
-  const items = (o.items||[]).map(i=>`
-    <div class="flex justify-between gap-3 py-1 text-sm">
-      <div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>
-      <div class="tabular-nums">${naira(i.lineTotal ?? i.price*i.qty)}</div>
-    </div>`).join('');
-  return `
-  <div class="grid sm:grid-cols-2 gap-5">
-    <div>
-      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Items</div>
-      ${items || '<div class="text-sm text-gray-500">No items</div>'}
-      <div class="mt-2 pt-2 border-t border-[#eee3cf] text-sm space-y-1">
-        <div class="flex justify-between"><span>Subtotal</span><span class="tabular-nums">${naira(o.subtotal)}</span></div>
-        <div class="flex justify-between"><span>Discount</span><span class="tabular-nums">${o.discount?('-'+naira(o.discount)):'—'}</span></div>
-        <div class="flex justify-between"><span>Delivery</span><span class="tabular-nums">${Number(o.delivery)===0?'Free':naira(o.delivery)}</span></div>
-        <div class="flex justify-between font-medium pt-1 border-t border-[#eee3cf]"><span>Total</span><span class="tabular-nums">${naira(o.total)}</span></div>
-      </div>
-    </div>
-    <div>
-      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Delivery</div>
-      <div class="text-sm text-gray-700 space-y-1">
-        <div>${c.name||'—'} · ${c.phone||'—'}</div>
-        <div>${c.address||''}${c.city?', '+c.city:''}</div>
-        <div>${c.method||''}</div>
-      </div>
-      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2 mt-4">Payment</div>
-      <div class="text-sm text-gray-700">${orderPayLabel(o)}${o.payref?` · <span class="tabular-nums">${o.payref}</span>`:''}</div>
-    </div>
-  </div>
-  <div class="mt-4 pt-4 border-t border-[#eee3cf]">${statusTimelineHTML(o.status)}</div>`;
-}
-
 function statusTimelineHTML(status){
-  const steps = ['Awaiting Payment','Payment Proof Submitted','Processing','Shipped','Delivered'];
+  const steps = ['Awaiting Payment','Verifying Your Payment','Being Handcrafted','On Its Way','Delivered'];
   const cur = (status||'').trim();
   if(/cancel/i.test(cur)){
     return `<div class="flex items-center gap-2 text-red-600 text-sm font-medium">
@@ -852,6 +812,7 @@ const ROUTE_META = {
   checkout: { title:'Checkout — Zorie Collectibles', desc:'Secure checkout by bank transfer.' },
   track:    { title:'Track Order — Zorie Collectibles', desc:'Track your Zorie Collectibles order.' },
   account:  { title:'My Account — Zorie Collectibles', desc:'Sign in to view your Zorie Collectibles orders.' },
+  order:    { title:'Order — Zorie Collectibles', desc:'View and track your Zorie Collectibles order.' },
   'opay-callback': { title:'Confirming Payment — Zorie Collectibles', desc:'Confirming your OPay payment.' },
   admin:    { title:'Admin — Zorie Collectibles', desc:'Store owner dashboard.' },
   policies: { title:'Store Policies — Zorie Collectibles', desc:'Shipping, returns, privacy and terms.' },
@@ -867,6 +828,7 @@ function setMeta(meta){
 
 function router(){
   closeAllOverlays();
+  stopOrderPoll();
   const {route, params} = parseHash();
   document.body.classList.toggle('admin-mode', route==='admin');
   window.scrollTo({top:0, behavior:'instant' in window ? 'instant':'auto'});
@@ -882,6 +844,7 @@ function router(){
   else if(route==='checkout'){ renderCheckoutPage(); setMeta(ROUTE_META.checkout); }
   else if(route==='track'){ renderTrackOrder(); setMeta(ROUTE_META.track); }
   else if(route==='account'){ renderAccount(); setMeta(ROUTE_META.account); }
+  else if(route==='order'){ renderOrderPage(params); setMeta(ROUTE_META.order); }
   else if(route==='opay-callback'){ renderOpayCallback(params); setMeta(ROUTE_META['opay-callback']); }
   else if(route==='admin'){ renderAdminGate(); setMeta(ROUTE_META.admin); }
   else if(route==='policies'){ renderPolicies(params.page); setMeta(ROUTE_META.policies); }
@@ -1305,13 +1268,13 @@ function checkoutFormHTML(lines, discountPct){
     <form id="checkout-form" onsubmit="return placeOrder(event)">
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Delivery Information</div>
       <div class="grid sm:grid-cols-2 gap-4 mb-4">
-        <div><label>Full Name</label><input type="text" id="co-name" value="${pName}" required></div>
-        <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required></div>
+        <div><label>Full Name</label><input type="text" id="co-name" value="${pName}" required autocomplete="name"></div>
+        <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required autocomplete="tel" inputmode="tel"></div>
       </div>
-      <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required></div>
-      <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required>${pAddr}</textarea></div>
+      <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required autocomplete="street-address">${pAddr}</textarea></div>
       <div class="grid sm:grid-cols-2 gap-4 mb-6">
-        <div><label>City</label><input type="text" id="co-city" value="${pCity}" required></div>
+        <div><label>City</label><input type="text" id="co-city" value="${pCity}" required autocomplete="address-level2"></div>
         <div>
           <label>Delivery Method</label>
           <select id="co-method">${methodOpts}</select>
@@ -1319,27 +1282,18 @@ function checkoutFormHTML(lines, discountPct){
       </div>
 
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Payment Method</div>
-      <div class="space-y-3 mb-4">
-        <label class="flex items-center gap-3 border border-[#e4dcc7] p-3 cursor-pointer">
-          <input type="radio" name="pay" value="opay" checked onchange="togglePayMethod(this.value)"> <span class="text-sm">Pay by Transfer to OPay Account</span>
-        </label>
-      </div>
-      <div id="opay-details" class="mb-6 border border-gold-light/50 bg-gold-pale/40 rounded-md p-4">
-        <div class="text-xs tracking-wideish uppercase text-gold mb-2">OPay Transfer Details</div>
-        <div class="space-y-1 text-sm">
-          <div><span class="text-gray-500">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b></div>
-          <div><span class="text-gray-500">Account Number:</span> <b class="serif text-xl text-forest-dark tracking-wider">${CONFIG.opay.accountNumber}</b></div>
-          <div><span class="text-gray-500">Bank:</span> <b>OPay</b></div>
+      <div class="border border-gold-light/50 bg-gold-pale/40 rounded-md p-4 mb-6">
+        <div class="flex items-center gap-3 text-sm">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="text-forest shrink-0"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          <span>Pay by <b>transfer to our OPay account</b>. You'll see the account details after placing your order.</span>
         </div>
-        <p class="text-xs text-gray-500 mt-3">Transfer the order total to the account above, then place your order and send your proof of payment via WhatsApp so we can confirm it.</p>
       </div>
-      <p class="text-[11px] text-gray-600 mb-6">Place your order and transfer payment to our OPay account to confirm.</p>
 
       ${hasActiveDiscounts ? `
       <div class="mb-6">
         <label>Discount Code</label>
         <div class="flex gap-2">
-          <input type="text" id="co-discount" placeholder="Enter code">
+          <input type="text" id="co-discount" placeholder="Enter code" autocomplete="off">
           <button type="button" onclick="applyDiscount()" class="btn btn-forest btn-xs">Apply</button>
         </div>
         <div id="discount-msg" class="text-xs mt-1"></div>
@@ -1373,10 +1327,6 @@ function checkoutFormHTML(lines, discountPct){
 }
 
 let appliedDiscount = 0;
-function togglePayMethod(v){
-  const d = document.getElementById('opay-details');
-  if(d) d.classList.toggle('hidden', v!=='opay');
-}
 function applyDiscount(){
   const el = document.getElementById('co-discount');
   if(!el){ appliedDiscount = 0; return; }
@@ -1419,7 +1369,7 @@ async function placeOrder(e){
   const delivery = subtotal>50000 ? 0 : 3500;
   const discountAmt = Math.round(subtotal*(appliedDiscount||0)/100);
   const total = subtotal - discountAmt + delivery;
-  const payMethod = document.querySelector('input[name=pay]:checked').value;
+  const payMethod = 'opay';
 
   const order = {
     id: 'ZC-' + Date.now().toString().slice(-8),
@@ -1435,7 +1385,7 @@ async function placeOrder(e){
     },
     items: lines.map(l=>({name:l.product.name, size:l.size, note:l.note, qty:l.qty, price:l.product.price, lineTotal:l.lineTotal})),
     subtotal, discount: discountAmt, delivery, total,
-    payMethod, status: 'Processing'
+    payMethod, status: 'Being Handcrafted'
   };
   saveDeliveryDefaults(order.customer);
 const btn = e.target.querySelector('button[type=submit], button');
@@ -1505,7 +1455,7 @@ async function renderOpayCallback(params){
 }
 
 async function finalizeOrder(order, reference){
-  if(reference){ order.payRef = reference; order.status = 'Processing'; }
+  if(reference){ order.payRef = reference; order.status = 'Being Handcrafted'; }
   let saved = order;
   if(sb){
     try{
@@ -1525,6 +1475,25 @@ async function finalizeOrder(order, reference){
   showInvoice(saved);
 }
 
+/* Shared OPay proof submission — returns true on success. */
+async function submitPaymentProof(orderId){
+  if(sb){
+    try{
+      const res = await sb.functions.invoke('checkout', { body:{ method:'opay', action:'proof-submitted', orderId } });
+      if(res.error || !res.data || !res.data.ok) throw new Error('confirm failed');
+      return true;
+    }catch(err){
+      console.error(err);
+      return false;
+    }
+  } else {
+    const orders = DB.orders;
+    const o = orders.find(o=>o.id===orderId);
+    if(o){ o.status = 'Verifying Your Payment'; DB.orders = orders; }
+    return true;
+  }
+}
+
 /* OPay transfer: customer returns from WhatsApp and confirms they have paid. */
 async function confirmOpayPayment(orderId){
   const wrap = document.getElementById('opay-proof-wrap');
@@ -1535,23 +1504,9 @@ async function confirmOpayPayment(orderId){
         Payment proof received — we'll confirm your order shortly.
       </div>`;
   };
-  if(sb){
-    try{
-      const res = await sb.functions.invoke('checkout', { body:{ method:'opay', action:'proof-submitted', orderId } });
-      if(res.error || !res.data || !res.data.ok) throw new Error('confirm failed');
-      mark();
-      toast('Payment proof sent — thank you!');
-    }catch(err){
-      console.error(err);
-      toast('Could not confirm here. Please message us on WhatsApp instead.');
-    }
-  } else {
-    const orders = DB.orders;
-    const o = orders.find(o=>o.id===orderId);
-    if(o){ o.status = 'Payment Proof Submitted'; DB.orders = orders; }
-    mark();
-    toast('Payment proof sent — thank you!');
-  }
+  const ok = await submitPaymentProof(orderId);
+  if(ok){ mark(); toast('Payment proof sent — thank you!'); }
+  else { toast('Could not confirm here. Please message us on WhatsApp instead.'); }
 }
 
 function showInvoice(order){
@@ -1610,6 +1565,197 @@ function showInvoice(order){
 }
 
 /* =========================================================================
+   ORDER PAGE (per-account order detail: payment + delivery tracking)
+   ========================================================================= */
+let orderPollTimer = null;
+function stopOrderPoll(){
+  if(orderPollTimer){ clearInterval(orderPollTimer); orderPollTimer = null; }
+}
+
+/* Fetch a single order owned by the signed-in user. */
+async function fetchOrder(id){
+  const me = currentUser();
+  if(!me) return null;
+  if(sb){
+    try{
+      const { data, error } = await sb.from('orders').select('*').eq('id', id).eq('user_id', me.id).maybeSingle();
+      if(error || !data) return null;
+      return normalizeOrder(data);
+    }catch(e){ return null; }
+  }
+  const email = (me.email||'').toLowerCase();
+  return DB.orders.find(o=>String(o.id)===String(id) && String((o.customer||{}).email||'').toLowerCase()===email) || null;
+}
+/* Status-specific action panel for the order page. */
+function orderPageActionsHTML(o){
+  const st = (o.status||'').trim();
+  const wa = CONFIG.store.whatsapp;
+  const waBtn = `<a href="https://wa.me/${wa}?text=${encodeURIComponent('Hi Zorie Collectibles! I have a question about order '+o.id+'.')}" target="_blank" class="btn btn-outline btn-sm">Message us on WhatsApp</a>`;
+  if(/awaiting/i.test(st)){
+    return `
+    <div class="border border-gold-light/60 bg-gold-pale/50 rounded-md p-4">
+      <div class="font-semibold text-forest-dark mb-1">Complete your OPay transfer</div>
+      <p class="text-gray-600 text-sm mb-3">Transfer <b>${naira(o.total)}</b> to the OPay account below, then send your proof of payment:</p>
+      <div class="text-sm mb-4">
+        <span class="text-gray-500">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b><br>
+        <span class="text-gray-500">Account Number:</span> <b class="tracking-wider">${CONFIG.opay.accountNumber}</b> · <span class="text-gray-500">Bank:</span> OPay
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="https://wa.me/${wa}?text=${encodeURIComponent('Hi Zorie Collectibles! I just paid '+naira(o.total)+' for order '+o.id+' via OPay transfer.')}" target="_blank" class="btn btn-gold btn-sm">Send proof on WhatsApp</a>
+        <button data-confirm-pay onclick="orderPageConfirm('${o.id}')" class="btn btn-outline btn-sm">I have made payment</button>
+      </div>
+      <p class="text-[11px] text-gray-500 mt-3">After you mark payment, we'll confirm your transfer and start preparing your order.</p>
+    </div>`;
+  }
+  if(/verif/i.test(st)){
+    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+      <div>Your payment proof has been received — we're verifying it now.</div>${waBtn}
+    </div>`;
+  }
+  if(/handcraft/i.test(st)){
+    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+      <div>Your payment is confirmed — we're handcrafting your order.</div>${waBtn}
+    </div>`;
+  }
+  if(/way/i.test(st)){
+    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+      <div>Your order is on its way (${(o.customer||{}).method||'delivery'}). Sit tight!</div>${waBtn}
+    </div>`;
+  }
+  if(/delivered/i.test(st)){
+    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+      <div>Your order has been delivered. Enjoy!</div>${waBtn}
+    </div>`;
+  }
+  if(/cancel/i.test(st)){
+    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+      <div>This order was cancelled. Need help? Chat with us.</div>${waBtn}
+    </div>`;
+  }
+  return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    <div>Order is being processed. Updates will appear here.</div>${waBtn}
+  </div>`;
+}
+let renderedOrderId = null;
+let renderedOrderStatus = null;
+let renderedOrderPayref = null;
+
+async function renderOrderPage(params){
+  const app = document.getElementById('app');
+  const me = currentUser();
+  if(!me){
+    app.innerHTML = `
+    <section class="max-w-md mx-auto px-6 py-16 text-center">
+      <h1 class="serif text-3xl mb-3">Track Your Order</h1>
+      <p class="text-sm text-gray-500 mb-6">Sign in to view this order, or track it with your order number and email.</p>
+      <a href="#account" class="btn btn-forest">Sign In</a>
+      <a href="#track" class="btn btn-outline mt-3 w-full">Track Order</a>
+    </section>`;
+    return;
+  }
+  const id = params.id || '';
+  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-[#e4dcc7] border-t-gold rounded-full animate-spin"></div><p class="text-sm text-gray-500">Loading your order…</p></div>`;
+  const order = await fetchOrder(id);
+  if(!order){
+    app.innerHTML = `
+    <section class="max-w-md mx-auto px-6 py-16 text-center">
+      <h1 class="serif text-3xl mb-3">Order not found</h1>
+      <p class="text-sm text-gray-500 mb-6">We couldn't find order ${id} in your account.</p>
+      <a href="#account" class="btn btn-forest">Back to My Account</a>
+    </section>`;
+    return;
+  }
+  renderOrderPageHTML(order);
+  maybePollOrder(order);
+}
+
+function renderOrderPageHTML(o){
+  renderedOrderId = o.id;
+  renderedOrderStatus = (o.status||'').trim();
+  renderedOrderPayref = (o.payRef||o.payref||'')||'';
+  const c = o.customer || {};
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <section class="max-w-3xl mx-auto px-6 py-16">
+    <a href="#account" class="text-xs text-gold underline mb-6 inline-block">&larr; Back to My Account</a>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+      <h1 class="serif text-3xl">Order ${o.id}</h1>
+      ${orderStatusBadge(o.status)}
+    </div>
+    <div class="text-xs text-gray-500 mb-8">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})} · ${orderPayLabel(o)}</div>
+
+    <div class="border border-[#e4dcc7] rounded-md p-5 mb-6">
+      <div class="text-[11px] uppercase tracking-wideish text-gold mb-3">Delivery Status</div>
+      ${statusTimelineHTML(o.status)}
+    </div>
+
+    ${orderPageActionsHTML(o)}
+
+    <div class="grid sm:grid-cols-2 gap-6 mt-8">
+      <div>
+        <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Items</div>
+        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm">
+          ${(o.items||[]).map(i=>`
+            <div class="flex justify-between gap-3 py-1">
+              <div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}${i.note?` <span class="text-gray-500 italic">"${i.note}"</span>`:''}</div>
+              <div class="tabular-nums">${naira(i.lineTotal ?? i.price*i.qty)}</div>
+            </div>`).join('') || '<div class="text-gray-500">No items</div>'}
+          <div class="mt-2 pt-2 border-t border-[#eee3cf] space-y-1">
+            <div class="flex justify-between"><span>Subtotal</span><span class="tabular-nums">${naira(o.subtotal)}</span></div>
+            <div class="flex justify-between"><span>Discount</span><span class="tabular-nums">${o.discount?('-'+naira(o.discount)):'—'}</span></div>
+            <div class="flex justify-between"><span>Delivery</span><span class="tabular-nums">${Number(o.delivery)===0?'Free':naira(o.delivery)}</span></div>
+            <div class="flex justify-between font-medium pt-1 border-t border-[#eee3cf]"><span>Total</span><span class="tabular-nums">${naira(o.total)}</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Delivery Details</div>
+        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-700 space-y-1">
+          <div>${c.name||'—'} · ${c.phone||'—'}</div>
+          <div>${c.address||''}${c.city?', '+c.city:''}</div>
+          <div>${c.method||''}</div>
+        </div>
+        <div class="text-[11px] uppercase tracking-wideish text-gold mb-2 mt-4">Payment</div>
+        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-700">${orderPayLabel(o)}${renderedOrderPayref?` · <span class="tabular-nums">${renderedOrderPayref}</span>`:''}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* Poll while the order is still pending so the timeline updates when the
+   admin changes the status. Stopped on navigation via router(). */
+function maybePollOrder(o){
+  stopOrderPoll();
+  const st = (o.status||'').trim();
+  if(!/awaiting|verif|handcraft|way/i.test(st) || !currentUser()) return;
+  orderPollTimer = setInterval(async ()=>{
+    const fresh = await fetchOrder(renderedOrderId);
+    if(!fresh) return;
+    const freshStatus = (fresh.status||'').trim();
+    const freshPayref = (fresh.payRef||fresh.payref||'')||'';
+    if(freshStatus!==renderedOrderStatus || freshPayref!==renderedOrderPayref){
+      renderOrderPageHTML(fresh);
+    }
+    if(/delivered|cancel/i.test(freshStatus)) stopOrderPoll();
+  }, 20000);
+}
+
+/* Order page: customer says they've paid — submit proof then re-render. */
+async function orderPageConfirm(orderId){
+  const btn = document.querySelector('[data-confirm-pay]');
+  if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
+  const ok = await submitPaymentProof(orderId);
+  if(ok){
+    toast('Payment proof sent — thank you!');
+    const fresh = await fetchOrder(orderId);
+    if(fresh) renderOrderPageHTML(fresh);
+  } else {
+    toast('Could not confirm here. Please message us on WhatsApp instead.');
+    if(btn){ btn.disabled = false; btn.textContent = 'I have made payment'; }
+  }
+}
+
+/* =========================================================================
    TRACK ORDER
    ========================================================================= */
 function renderTrackOrder(){
@@ -1617,25 +1763,36 @@ function renderTrackOrder(){
   <section class="max-w-xl mx-auto px-6 py-20">
     <h1 class="serif text-3xl mb-2 text-center">Track Your Order</h1>
     <p class="text-sm text-gray-500 text-center mb-8">Enter the order number and the email you used at checkout.</p>
-    <div class="space-y-3 mb-6">
-      <input type="text" id="track-id" placeholder="Order number, e.g. ZC-12345678">
-      <input type="email" id="track-email" placeholder="Email used at checkout">
-      <button onclick="trackOrder()" class="btn btn-forest w-full">Track <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
-    </div>
+    <form onsubmit="return trackOrder(event)" class="space-y-3 mb-6">
+      <div>
+        <label for="track-id">Order Number</label>
+        <input type="text" id="track-id" placeholder="e.g. ZC-12345678" autocomplete="off" required>
+      </div>
+      <div>
+        <label for="track-email">Email</label>
+        <input type="email" id="track-email" placeholder="Email used at checkout" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <button type="submit" class="btn btn-forest w-full">Track <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+    </form>
     <p class="text-xs text-gray-500 text-center">Signed in? <a href="#account" class="text-gold underline">View my orders</a></p>
     <div id="track-result"></div>
   </section>`;
 }
 function trackOrderHTML(order){
+  const viewLink = currentUser() ? `<a href="#order?id=${encodeURIComponent(order.id)}" class="text-xs text-gold underline">View full details &rarr;</a>` : '';
   return `
     <div class="border border-[#e4dcc7] p-6">
       <div class="flex justify-between mb-3"><span class="text-sm text-gray-600">Order ${order.id}</span><span class="text-sm bg-gold-pale text-forest-dark px-3 py-1">${order.status}</span></div>
       <div class="text-sm text-gray-500 mb-4">Placed ${new Date(order.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
       ${order.items.map(i=>`<div class="text-sm py-1">${i.qty} × ${i.name}</div>`).join('')}
-      <div class="font-medium mt-3 pt-3 border-t border-[#eee3cf]">Total: ${naira(order.total)}</div>
+      <div class="flex items-center justify-between font-medium mt-3 pt-3 border-t border-[#eee3cf]">
+        <span>Total: ${naira(order.total)}</span>
+        ${viewLink}
+      </div>
     </div>`;
 }
-async function trackOrder(){
+async function trackOrder(e){
+  if(e && e.preventDefault) e.preventDefault();
   const id = document.getElementById('track-id').value.trim();
   const email = (document.getElementById('track-email').value||'').trim().toLowerCase();
   const el = document.getElementById('track-result');
@@ -1744,11 +1901,11 @@ function statusBadge(s){
   const t = s.toLowerCase();
   let cls = 'bg-gray-100 text-gray-600';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
-  else if(t.includes('proof')||t.includes('paid')) cls = 'bg-sky-100 text-sky-800';
-  else if(t==='processing') cls = 'bg-gold-pale text-forest-dark';
-  else if(t==='shipped') cls = 'bg-forest text-cream';
-  else if(t==='delivered') cls = 'bg-green-600 text-white';
-  else if(t==='cancelled') cls = 'bg-red-100 text-red-700';
+  else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
+  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-dark';
+  else if(t.includes('way')) cls = 'bg-forest text-cream';
+  else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
+  else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s}</span>`;
 }
 function loadEmailStats(){
@@ -2122,7 +2279,7 @@ async function renderAdmin(){
             <td data-label="Total">${naira(o.total)}</td>
             <td data-label="Status">
               <select onchange="updateOrderStatus('${o.id}', this.value)" class="!w-auto !py-1 text-xs">
-                ${['Awaiting Payment','Payment Proof Submitted','Processing','Shipped','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+                ${['Awaiting Payment','Verifying Your Payment','Being Handcrafted','On Its Way','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </td>
             <td data-label="Date">${new Date(o.date).toLocaleDateString('en-NG')}</td>
@@ -2177,7 +2334,7 @@ async function renderAdmin(){
       </div>
       <div class="stat-card p-6">
         <label>Subject</label>
-        <input type="text" id="nl-subject" placeholder="New arrivals at Zorie Collectibles" class="w-full mb-4">
+        <input type="text" id="nl-subject" placeholder="New arrivals at Zorie Collectibles" class="w-full mb-4" autocomplete="off">
         <label>Message</label>
         <textarea id="nl-body" rows="6" placeholder="Hi there,&#10;&#10;..." class="w-full mb-4"></textarea>
         <button id="nl-send-btn" onclick="sendNewsletterAdmin()" class="btn btn-forest ${unlocked?'':'opacity-40'}" ${unlocked?'':'disabled'}>Send newsletter to ${subs.length} subscribers</button>
@@ -2341,12 +2498,12 @@ function openProductForm(id){
   const p = id ? findProduct(id) : null;
   const wrap = document.getElementById('product-form-wrap');
   wrap.innerHTML = `
-    <form onsubmit="return saveProduct(event, '${id||''}')" class="bg-white border border-[#e4dcc7] rounded-xl p-5 sm:p-6 grid sm:grid-cols-2 gap-4 shadow-sm">
+    <form onsubmit="return saveProduct(event, '${id||''}')" class="bg-white border border-[#e4dcc7] rounded-xl p-5 sm:p-6 grid sm:grid-cols-2 gap-4 shadow-sm" autocomplete="off">
       <div><label>Name</label><input type="text" id="pf-name" value="${p?p.name:''}" required></div>
       <div><label>Category</label>
         <select id="pf-cat">${CATEGORIES.map(c=>`<option ${p&&p.cat===c?'selected':''}>${c}</option>`).join('')}</select>
       </div>
-      <div><label>Price (₦)</label><input type="number" id="pf-price" value="${p?p.price:''}" required></div>
+      <div><label>Price (₦)</label><input type="number" id="pf-price" value="${p?p.price:''}" required inputmode="decimal"></div>
       <div><label>Stock</label><input type="number" id="pf-stock" value="${p?p.stock:10}" required></div>
       <div class="sm:col-span-2">
         <label>Product Image</label>
@@ -2366,7 +2523,7 @@ function openProductForm(id){
         </div>
       </div>
       <div class="sm:col-span-2"><label>Description</label><textarea id="pf-desc" rows="2">${p?p.desc:''}</textarea></div>
-      <div class="sm:col-span-2"><label>Sizes / Options (comma separated)</label><input type="text" id="pf-sizes" value="${p?p.sizes.join(', '):'One size'}"></div>
+      <div class="sm:col-span-2"><label>Sizes / Options (comma separated)</label><input type="text" id="pf-sizes" value="${p?p.sizes.join(', '):'One size'}" autocomplete="off"></div>
       <div class="sm:col-span-2 flex items-center gap-2">
         <input type="checkbox" id="pf-custom" ${p&&p.customizable?'checked':''}>
         <label for="pf-custom" class="!mb-0 !text-sm">Customizable — allow a name / word personalization at checkout</label>
@@ -2606,8 +2763,8 @@ function renderContact(){
     <div>
       <h3 class="serif text-2xl mb-4">Send us a message</h3>
       <form onsubmit="return submitContact(event)" class="space-y-4">
-        <div><label>Name</label><input type="text" id="ct-name" required></div>
-        <div><label>Email</label><input type="email" id="ct-email" required></div>
+        <div><label>Name</label><input type="text" id="ct-name" required autocomplete="name"></div>
+        <div><label>Email</label><input type="email" id="ct-email" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
         <div><label>Message</label><textarea id="ct-message" rows="4" required></textarea></div>
         <button class="btn btn-forest w-full">Send Message <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
       </form>

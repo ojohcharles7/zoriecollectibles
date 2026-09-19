@@ -30,7 +30,7 @@ create table if not exists public.orders (
   total       integer default 0,
   paymethod   text default '',
   payref      text default '',
-  status      text default 'Processing',
+  status      text default 'Being Handcrafted',
   user_id     uuid,
   created_at  timestamptz default now()
 );
