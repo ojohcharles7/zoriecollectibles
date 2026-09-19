@@ -256,6 +256,24 @@ async function trackOrder(orderId, email) {
   return json({ ok: true, order: data });
 }
 
+// Link a customer's past guest orders (placed with the same email) to their
+// account so they show up under "My Orders" after signing up. Runs with the
+// service role so RLS stays closed to direct client updates.
+async function claimOrders(req, email) {
+  const userId = await callerUserId(req);
+  if (!userId) return json({ error: "unauthorized" }, 401);
+  const em = String(email || "").trim().toLowerCase();
+  if (!em) return json({ ok: true, claimed: 0 });
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ user_id: userId })
+    .eq("user_id", null)
+    .ilike("customer->>email", em)
+    .select("id");
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true, claimed: (data || []).length });
+}
+
 // Admin-only: list registered customers from the signup_users table.
 // (The table is kept in sync automatically by a trigger on auth.users.)
 async function listCustomers(req) {
@@ -365,6 +383,9 @@ Deno.serve(async (req) => {
 
   if (body && body.method === "track") {
     return await trackOrder(body.orderId, body.email);
+  }
+  if (body && body.method === "claim-orders") {
+    return await claimOrders(req, body.email);
   }
   if (body && body.method === "customers") {
     return await listCustomers(req);

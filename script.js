@@ -113,7 +113,7 @@ const DB = {
   get subscribers(){ return DATA.subscribers || (DATA.subscribers = ls.get('zorie_subs', [])); },
   set subscribers(v){ DATA.subscribers = v; ls.set('zorie_subs', v); if(sb){ sb.from('subscribers').upsert(v.map(s=>({email:s}))).then(()=>{}).catch(e=>console.warn('sync subs', e)); } },
   get cart(){ return DATA.cart; },
-  set cart(v){ DATA.cart = v; ls.set('zorie_cart', v); updateBadges(); },
+  set cart(v){ DATA.cart = v; ls.set('zorie_cart', v); updateBadges(); syncCartToProfile(); },
   get wishlist(){ return DATA.wishlist; },
   set wishlist(v){ DATA.wishlist = v; ls.set('zorie_wishlist', v); updateBadges(); }
 };
@@ -199,12 +199,129 @@ async function initAuth(){
     AUTH.session = data.session; AUTH.user = data.session?.user || null;
     sb.auth.onAuthStateChange((ev, session)=>{
       AUTH.session = session; AUTH.user = session?.user || null;
+      if(ev==='SIGNED_OUT' || (ev==='TOKEN_REFRESHED' && !session)){
+        sessionStorage.removeItem('zorie_admin');
+        if((location.hash||'').startsWith('#admin')) router();
+      }
       updateAuthUI();
     });
   } else {
     AUTH.user = ls.get('zorie_session', null);
   }
   updateAuthUI();
+  if(AUTH.user) restoreUserState();
+}
+
+/* =========================================================================
+   PER-USER PROFILE (server-synced cart + default delivery info)
+   In live mode this lives in the `user_profiles` table; in demo mode the
+   same fields ride on the localStorage account record for parity.
+   ========================================================================= */
+const PROFILE = { data: null };
+
+function profileCache(){
+  const me = currentUser();
+  if(!me) return null;
+  if(PROFILE.data && PROFILE.data.email === (me.email || '').toLowerCase()) return PROFILE.data;
+  return null;
+}
+
+async function loadUserProfile(){
+  const me = currentUser();
+  if(!me){ PROFILE.data = null; return null; }
+  const email = (me.email || '').toLowerCase();
+  if(sb){
+    try{
+      const { data, error } = await sb.from('user_profiles').select('*').eq('id', me.id).maybeSingle();
+      const p = error ? null : (data || { id: me.id, cart: [], address:'', city:'', delivery_method:'' });
+      PROFILE.data = { email, ...p, cart: Array.isArray((p||{}).cart) ? p.cart : [] };
+    }catch(e){
+      PROFILE.data = { email, id: me.id, cart: [], address:'', city:'', delivery_method:'' };
+    }
+    return PROFILE.data;
+  }
+  const users = ls.get('zorie_users', []);
+  const u = users.find(x=>x.email===email) || {};
+  const session = ls.get('zorie_session', null) || {};
+  PROFILE.data = {
+    email, id: me.id || email,
+    address: session.address || u.address || '',
+    city: session.city || u.city || '',
+    delivery_method: session.delivery_method || u.delivery_method || '',
+    cart: DATA.cart
+  };
+  return PROFILE.data;
+}
+
+let cartSyncTimer = null;
+function syncCartToProfile(immediate){
+  const me = currentUser();
+  if(!me) return;
+  const save = async ()=>{
+    if(sb){
+      try{
+        await sb.from('user_profiles').upsert({ id: me.id, cart: DB.cart, updated_at: todayISO() });
+        if(PROFILE.data) PROFILE.data.cart = DB.cart;
+      }catch(e){ console.warn('cart sync failed', e); }
+    }
+  };
+  if(immediate){ save(); }
+  else { clearTimeout(cartSyncTimer); cartSyncTimer = setTimeout(save, 800); }
+}
+
+/* Merge the guest cart with the account's saved cart (keep the larger qty
+   for an item already in both) and re-render if we're mid-checkout. */
+async function restoreUserState(){
+  const me = currentUser();
+  if(!me) return;
+  await loadUserProfile();
+  const saved = (PROFILE.data && PROFILE.data.cart) || [];
+  if(sb && Array.isArray(saved) && saved.length){
+    const merged = [...DB.cart];
+    saved.forEach(si=>{
+      const ex = merged.find(i=>i.key===si.key);
+      if(ex){ ex.qty = Math.max(ex.qty, si.qty); }
+      else merged.push(si);
+    });
+    DB.cart = merged;
+  }
+  syncCartToProfile(true);
+  if(sb) await claimPastOrders();
+  if(location.hash.startsWith('#checkout')) renderCheckoutPage();
+  else if(location.hash.startsWith('#account')) renderAccount();
+}
+
+/* Bring past guest orders (same email) into this account. */
+async function claimPastOrders(){
+  const me = currentUser();
+  if(!me || !sb) return;
+  try{
+    const res = await sb.functions.invoke('checkout', { body:{ method:'claim-orders', email: me.email } });
+    if(res && !res.error && res.data && res.data.claimed > 0){
+      const { data } = await sb.from('orders').select('*').eq('user_id', me.id);
+      if(data) DATA.orders = data.map(normalizeOrder);
+    }
+  }catch(e){ console.warn('claim orders failed', e); }
+}
+
+/* Persist the delivery fields just entered at checkout as the user's default. */
+function saveDeliveryDefaults(c){
+  const me = currentUser();
+  if(!me || !c) return;
+  const vals = { address: c.address || '', city: c.city || '', delivery_method: c.method || '' };
+  if(sb){
+    sb.from('user_profiles').upsert({ id: me.id, ...vals, updated_at: todayISO() })
+      .then(()=>{ if(PROFILE.data) Object.assign(PROFILE.data, vals); })
+      .catch(e=>console.warn('save delivery defaults failed', e));
+  } else {
+    const email = (me.email || '').toLowerCase();
+    const users = ls.get('zorie_users', []);
+    const u = users.find(x=>x.email===email);
+    if(u){ Object.assign(u, vals); ls.set('zorie_users', users); }
+    const session = ls.get('zorie_session', null);
+    if(session){ Object.assign(session, vals); ls.set('zorie_session', session); }
+    if(PROFILE.data) Object.assign(PROFILE.data, vals);
+  }
 }
 
 /* demo-mode password hashing (fallback if Web Crypto unavailable) */
@@ -247,6 +364,7 @@ async function doSignUp(e){
     if(error){ fail(error.message); return false; }
     if(data.session){
       AUTH.user = data.session.user; updateAuthUI();
+      await restoreUserState();
       routeAfterAuth();
       setTimeout(()=>openModal('welcome-modal'), 150);
     } else {
@@ -263,6 +381,7 @@ async function doSignUp(e){
     ls.set('zorie_session', { email, full_name, phone });
     AUTH.user = { email, full_name, phone };
     updateAuthUI();
+    await restoreUserState();
     routeAfterAuth();
     setTimeout(()=>openModal('welcome-modal'), 150);
   }
@@ -280,6 +399,7 @@ async function doSignIn(e){
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
     if(error){ fail('Incorrect email or password.'); return false; }
     AUTH.user = data.user; updateAuthUI();
+    await restoreUserState();
     routeAfterAuth();
   } else {
     const users = ls.get('zorie_users', []);
@@ -290,15 +410,17 @@ async function doSignIn(e){
     ls.set('zorie_session', { email: u.email, full_name: u.full_name, phone: u.phone });
     AUTH.user = { email: u.email, full_name: u.full_name, phone: u.phone };
     updateAuthUI();
+    await restoreUserState();
     routeAfterAuth();
   }
   return false;
 }
 
 async function signOut(){
+  syncCartToProfile(true);
   if(sb){ await sb.auth.signOut(); }
   else { ls.set('zorie_session', null); }
-  AUTH.user = null; updateAuthUI();
+  AUTH.user = null; PROFILE.data = null; updateAuthUI();
   renderAccount();
 }
 
@@ -426,23 +548,107 @@ async function renderAccount(){
         <a href="#shop" class="btn btn-forest btn-sm">Start Shopping</a>
       </div>` :
       `<div class="space-y-4">
-        ${orders.map(o=>`
+        ${orders.map((o,i)=>`
         <div class="border border-[#e4dcc7] p-5">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
-            ${orderStatusBadge(o.status)}
+          <div onclick="toggleOrderDetail(${i})" class="cursor-pointer">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
+              ${orderStatusBadge(o.status)}
+            </div>
+            <div class="text-xs text-gray-500 mb-2">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+            <div class="text-sm text-gray-700 space-y-0.5">
+              ${(o.items||[]).slice(0,2).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
+              ${(o.items||[]).length>2 ? `<div class="text-xs text-gray-400 mt-1">+${(o.items||[]).length-2} more item(s)</div>`:''}
+            </div>
           </div>
-          <div class="text-xs text-gray-500 mb-3">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
-          <div class="text-sm text-gray-700 space-y-1 mb-3">
-            ${(o.items||[]).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-[#eee3cf]">
+            <span class="text-sm">${orderPayLabel(o)}</span>
+            <div class="flex items-center gap-3">
+              <span class="serif text-lg text-forest-dark">${naira(o.total)}</span>
+              <button type="button" onclick="toggleOrderDetail(${i})" class="flex items-center gap-1 text-xs text-gold underline">Details
+                <svg id="order-chev-${i}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform .2s"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
           </div>
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#eee3cf]">
-            <span class="text-sm">${((o.payMethod||o.paymethod)==='paystack')?'Paystack':((o.payMethod||o.paymethod)==='opay'?'OPay (Transfer)':'OPay / Bank')}</span>
-            <span class="serif text-lg text-forest-dark">${naira(o.total)}</span>
+          <div id="order-detail-${i}" class="hidden mt-4 pt-4 border-t border-[#eee3cf]">
+            ${orderDetailHTML(o)}
           </div>
         </div>`).join('')}
       </div>`}
   </section>`;
+}
+
+function orderPayLabel(o){
+  const p = o.payMethod || o.paymethod;
+  if(p==='paystack') return 'Paystack';
+  if(p==='opay') return 'OPay (Transfer)';
+  return 'OPay / Bank';
+}
+
+function toggleOrderDetail(i){
+  const el = document.getElementById('order-detail-' + i);
+  if(!el) return;
+  el.classList.toggle('hidden');
+  const ch = document.getElementById('order-chev-' + i);
+  if(ch) ch.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function orderDetailHTML(o){
+  const c = o.customer || {};
+  const items = (o.items||[]).map(i=>`
+    <div class="flex justify-between gap-3 py-1 text-sm">
+      <div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>
+      <div class="tabular-nums">${naira(i.lineTotal ?? i.price*i.qty)}</div>
+    </div>`).join('');
+  return `
+  <div class="grid sm:grid-cols-2 gap-5">
+    <div>
+      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Items</div>
+      ${items || '<div class="text-sm text-gray-500">No items</div>'}
+      <div class="mt-2 pt-2 border-t border-[#eee3cf] text-sm space-y-1">
+        <div class="flex justify-between"><span>Subtotal</span><span class="tabular-nums">${naira(o.subtotal)}</span></div>
+        <div class="flex justify-between"><span>Discount</span><span class="tabular-nums">${o.discount?('-'+naira(o.discount)):'—'}</span></div>
+        <div class="flex justify-between"><span>Delivery</span><span class="tabular-nums">${Number(o.delivery)===0?'Free':naira(o.delivery)}</span></div>
+        <div class="flex justify-between font-medium pt-1 border-t border-[#eee3cf]"><span>Total</span><span class="tabular-nums">${naira(o.total)}</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Delivery</div>
+      <div class="text-sm text-gray-700 space-y-1">
+        <div>${c.name||'—'} · ${c.phone||'—'}</div>
+        <div>${c.address||''}${c.city?', '+c.city:''}</div>
+        <div>${c.method||''}</div>
+      </div>
+      <div class="text-[11px] uppercase tracking-wideish text-gold mb-2 mt-4">Payment</div>
+      <div class="text-sm text-gray-700">${orderPayLabel(o)}${o.payref?` · <span class="tabular-nums">${o.payref}</span>`:''}</div>
+    </div>
+  </div>
+  <div class="mt-4 pt-4 border-t border-[#eee3cf]">${statusTimelineHTML(o.status)}</div>`;
+}
+
+function statusTimelineHTML(status){
+  const steps = ['Awaiting Payment','Payment Proof Submitted','Processing','Shipped','Delivered'];
+  const cur = (status||'').trim();
+  if(/cancel/i.test(cur)){
+    return `<div class="flex items-center gap-2 text-red-600 text-sm font-medium">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+      Order cancelled</div>`;
+  }
+  const idx = steps.indexOf(cur);
+  return `<div class="flex items-start">
+    ${steps.map((s,i)=>{
+      const done = i <= idx;
+      const active = i === idx;
+      return `
+      <div class="flex-1 flex items-start min-w-0">
+        ${i>0?`<div class="mt-1.5 flex-1 h-0.5 min-w-2 ${done?'bg-forest':'bg-[#e4dcc7]'}"></div>`:''}
+        <div class="flex flex-col items-center px-1">
+          <div class="w-3.5 h-3.5 rounded-full border-2 ${done?'bg-forest border-forest':'bg-cream border-[#d9cdb4]'}"></div>
+          <span class="text-[10px] mt-1.5 text-center leading-tight ${active?'text-forest font-semibold':done?'text-forest-dark':'text-gray-400'}">${s}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function findProduct(id){ return DB.products.find(p=>p.id===id); }
@@ -1086,6 +1292,12 @@ function checkoutFormHTML(lines, discountPct){
   const pName = me ? ((me.user_metadata||{}).full_name || me.full_name || '') : '';
   const pPhone = me ? ((me.user_metadata||{}).phone || me.phone || '') : '';
   const pEmail = me ? (me.email || '') : '';
+  const prof = profileCache() || {};
+  const pAddr = prof.address || '';
+  const pCity = prof.city || '';
+  const pMethod = prof.delivery_method || 'Home Delivery';
+  const DELIVERY_METHODS = ['Home Delivery','Pickup — Aba','Pickup — Abuja','Pickup — Asaba','Pickup — Enugu','Pickup — Lagos','Pickup — Owerri','Pickup — Port Harcourt'];
+  const methodOpts = DELIVERY_METHODS.map(m=>`<option${m===pMethod?' selected':''}>${m}</option>`).join('');
   return `
   <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
   <h2 class="serif text-3xl mb-8">Checkout</h2>
@@ -1097,12 +1309,12 @@ function checkoutFormHTML(lines, discountPct){
         <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required></div>
       </div>
       <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required></div>
-      <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required></textarea></div>
+      <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required>${pAddr}</textarea></div>
       <div class="grid sm:grid-cols-2 gap-4 mb-6">
-        <div><label>City</label><input type="text" id="co-city" required></div>
+        <div><label>City</label><input type="text" id="co-city" value="${pCity}" required></div>
         <div>
           <label>Delivery Method</label>
-          <select id="co-method"><option>Home Delivery</option><option>Pickup — Aba</option><option>Pickup — Abuja</option><option>Pickup — Asaba</option><option>Pickup — Enugu</option><option>Pickup — Lagos</option><option>Pickup — Owerri</option><option>Pickup — Port Harcourt</option></select>
+          <select id="co-method">${methodOpts}</select>
         </div>
       </div>
 
@@ -1225,6 +1437,7 @@ async function placeOrder(e){
     subtotal, discount: discountAmt, delivery, total,
     payMethod, status: 'Processing'
   };
+  saveDeliveryDefaults(order.customer);
 const btn = e.target.querySelector('button[type=submit], button');
   const btnLabel = btn.textContent;
 
@@ -1479,7 +1692,10 @@ async function adminLogout(){
 }
 
 async function renderAdminGate(){
-  const authed = sessionStorage.getItem('zorie_admin')==='1';
+  const flag = sessionStorage.getItem('zorie_admin')==='1';
+  let session = null;
+  if(sb){ try{ const { data } = await sb.auth.getSession(); session = data.session || null; }catch(e){} }
+  const authed = flag && (!sb || !!session);
   if(authed){ renderAdmin(); return; }
   document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center relative">
     <a href="index.html" aria-label="Back to store" title="Back to store" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-[#e4dcc7] text-forest-dark hover:text-gold hover:border-gold flex items-center justify-center transition">
@@ -1982,8 +2198,23 @@ async function renderAdmin(){
         } else if(res && !res.error && res.data && res.data.ok && !Array.isArray(res.data.customers)){
           warn = 'Your deployed <b>checkout</b> edge function is outdated (it does not have the customer list yet). Redeploy it with: <code>supabase functions deploy checkout --no-verify-jwt</code>';
         } else {
-          const em = (res && res.error && res.error.message) || 'request failed';
-          warn = 'Could not load customers (' + em + '). Make sure your owner user has the <b>role: admin</b> claim (App metadata) in Supabase, then sign out and back in.';
+          let em = (res && res.error && res.error.message) || 'request failed';
+          try{
+            const resp = res.error && res.error.context;
+            if(resp && typeof resp.clone === 'function'){
+              const t = await resp.clone().json();
+              if(t && t.error) em = t.error;
+            }
+          }catch(_){}
+          if(em === 'unauthorized'){
+            await sb.auth.signOut().catch(()=>{});
+            sessionStorage.removeItem('zorie_admin');
+            renderAdminGate();
+            return;
+          }
+          warn = 'Could not load customers (' + em + '). ' + (em === 'forbidden'
+            ? 'Your admin sign-in is missing the <b>role: admin</b> claim (App metadata) in Supabase. Add it, then sign out and back in.'
+            : 'Please refresh the page and try again.');
         }
       }catch(e){ warn = 'Could not load registered customers (connection error). Please try again.'; }
     } else {

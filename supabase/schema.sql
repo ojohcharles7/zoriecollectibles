@@ -97,6 +97,41 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.sync_signup_user();
 
+-- USER PROFILES — per-user default delivery info + server-synced cart.
+-- One row per auth user; each user manages only their own row.
+create table if not exists public.user_profiles (
+  id              uuid primary key references auth.users(id) on delete cascade,
+  address         text not null default '',
+  city            text not null default '',
+  delivery_method text not null default '',
+  cart            jsonb not null default '[]'::jsonb,
+  updated_at      timestamptz default now()
+);
+
+-- Ensure every auth user has a profile row.
+create or replace function public.ensure_user_profile()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.user_profiles (id, cart)
+  values (new.id, '[]'::jsonb)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_profile on auth.users;
+create trigger on_auth_user_created_profile
+  after insert on auth.users
+  for each row execute function public.ensure_user_profile();
+
+-- Backfill existing users.
+insert into public.user_profiles (id)
+select id from auth.users
+on conflict (id) do nothing;
+
 -- CONTACT MESSAGES
 create table if not exists public.contact_messages (
   id         uuid primary key default gen_random_uuid(),
@@ -160,6 +195,7 @@ alter table public.contact_messages enable row level security;
 alter table public.email_queue enable row level security;
 alter table public.newsletter_sends enable row level security;
 alter table public.signup_users enable row level security;
+alter table public.user_profiles enable row level security;
 
 -- products: anyone can read; only the owner (admin claim) can write
 drop policy if exists "products public read"   on public.products;
@@ -205,6 +241,18 @@ drop policy if exists "signup users owner all" on public.signup_users;
 create policy "signup users owner all" on public.signup_users for all
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
   with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- user profiles: each user manages only their own row
+drop policy if exists "profiles own select" on public.user_profiles;
+drop policy if exists "profiles own insert" on public.user_profiles;
+drop policy if exists "profiles own update" on public.user_profiles;
+create policy "profiles own select" on public.user_profiles for select
+  using (auth.uid() = id);
+create policy "profiles own insert" on public.user_profiles for insert
+  with check (auth.uid() = id);
+create policy "profiles own update" on public.user_profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- contact messages: anyone can insert; only the owner reads
 drop policy if exists "contact public insert" on public.contact_messages;
