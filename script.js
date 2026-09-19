@@ -1868,13 +1868,10 @@ async function renderAdminGate(){
   if(sb){ try{ const { data } = await sb.auth.getSession(); session = data.session || null; }catch(e){} }
   const authed = flag && (!sb || !!session);
   if(authed){ renderAdmin(); return; }
-  document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center relative">
-    <a href="index.html" aria-label="Back to store" title="Back to store" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-edge text-forest-ink hover:text-gold hover:border-gold flex items-center justify-center transition">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
+  document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center">
+    <a href="#home" aria-label="Back to store" title="Back to store" class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest flex items-center justify-center hover:bg-forest-light transition">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
     </a>
-    <div class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest flex items-center justify-center">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-    </div>
     <h1 class="serif text-2xl mb-2">Admin Access</h1>
     <p class="text-sm text-muted mb-6">Sign in to manage your store.</p>
     <button onclick="openAdminLogin()" class="btn btn-forest btn-sm">Sign In</button>
