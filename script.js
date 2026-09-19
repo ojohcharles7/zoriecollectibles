@@ -522,6 +522,7 @@ function orderStatusBadge(s){
   let cls = 'bg-surface-soft text-muted-strong';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
+  else if(t.includes('payment received')) cls = 'bg-teal-100 text-teal-800';
   else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
   else if(t.includes('way')) cls = 'bg-forest text-cream';
   else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
@@ -601,7 +602,7 @@ function orderPayLabel(o){
 }
 
 function statusTimelineHTML(status){
-  const steps = ['Awaiting Payment','Verifying Your Payment','Being Handcrafted','On Its Way','Delivered'];
+  const steps = ['Awaiting Payment','Verifying Your Payment','Payment Received','Being Handcrafted','On Its Way','Delivered'];
   const cur = (status||'').trim();
   if(/cancel/i.test(cur)){
     return `<div class="flex items-center gap-2 text-red-600 text-sm font-medium">
@@ -1913,6 +1914,7 @@ function statusBadge(s){
   let cls = 'bg-surface-soft text-muted-strong';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
+  else if(t.includes('payment received')) cls = 'bg-teal-100 text-teal-800';
   else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
   else if(t.includes('way')) cls = 'bg-forest text-cream';
   else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
@@ -1923,6 +1925,7 @@ function statusPalette(s){
   const t = (s||'').toLowerCase();
   if(t.includes('awaiting')) return { bg:'#fef3c7', text:'#92400e', border:'#f59e0b' };
   if(t.includes('verif')) return { bg:'#e0f2fe', text:'#075985', border:'#38bdf8' };
+  if(t.includes('payment received')) return { bg:'#ccfbf1', text:'#115e59', border:'#2dd4bf' };
   if(t.includes('handcraft')) return { bg:'#faf0dc', text:'#173f30', border:'#d8bc72' };
   if(t.includes('way')) return { bg:'#173f30', text:'#fbf7ec', border:'#173f30' };
   if(t.includes('delivered')) return { bg:'#16a34a', text:'#ffffff', border:'#16a34a' };
@@ -2308,7 +2311,7 @@ async function renderAdmin(){
             <td data-label="Total">${naira(o.total)}</td>
             <td data-label="Status">
               <select id="st-sel-${o.id}" onchange="changeOrderStatus('${o.id}', this)" class="!w-auto !py-1 text-xs rounded-md" style="${statusStyle(o.status)}">
-                ${['Awaiting Payment','Verifying Your Payment','Being Handcrafted','On Its Way','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+                ${['Awaiting Payment','Verifying Your Payment','Payment Received','Being Handcrafted','On Its Way','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </td>
             <td data-label="Date">${new Date(o.date).toLocaleDateString('en-NG')}</td>
