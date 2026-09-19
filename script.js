@@ -16,6 +16,20 @@ function toast(msg){
   window._toastT = setTimeout(()=>t.classList.remove('show'), 2600);
 }
 
+/* ---------- dark / light theme ---------- */
+function currentTheme(){ return document.documentElement.dataset.theme || 'light'; }
+function applyThemeColor(){
+  const dark = currentTheme()==='dark';
+  const m = document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute('content', dark ? '#121714' : '#F7F3EA');
+}
+function toggleTheme(){
+  const next = currentTheme()==='dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try{ localStorage.setItem('zorie_theme', next); }catch(e){}
+  applyThemeColor();
+}
+
 /* ---------- product / section images ----------
    Primary source is Supabase Storage (public bucket `product-images`).
    Falls back to local /images when Supabase isn't configured (demo mode). */
@@ -346,7 +360,7 @@ function validatePassword(pw){
 async function doSignUp(e){
   e.preventDefault();
   const err = document.getElementById('auth-err');
-  const ok = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-forest'; } };
+  const ok = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-forest-ink'; } };
   const fail = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-red-500'; } };
   const full_name = document.getElementById('su-name').value.trim();
   const email = (document.getElementById('su-email').value||'').trim().toLowerCase();
@@ -433,8 +447,8 @@ function setAuthTab(mode){
   if(mode==='in'){ panel.innerHTML = inForm; }
   else { panel.innerHTML = upForm; }
   if(inBtn && upBtn){
-    inBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='in' ? 'border-forest text-forest font-medium' : 'border-transparent text-gray-500');
-    upBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='up' ? 'border-forest text-forest font-medium' : 'border-transparent text-gray-500');
+    inBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='in' ? 'border-forest text-forest-ink font-medium' : 'border-transparent text-muted');
+    upBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='up' ? 'border-forest text-forest-ink font-medium' : 'border-transparent text-muted');
   }
 }
 
@@ -443,7 +457,7 @@ function passwordFieldHTML(inputId, attrs){
   return `
     <div class="relative">
       <input type="password" id="${inputId}" ${attrs||''} style="padding-right:2.6rem">
-      <button type="button" onclick="togglePasswordVisibility('${inputId}', this)" aria-label="Show password" class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-forest transition rounded-md">
+      <button type="button" onclick="togglePasswordVisibility('${inputId}', this)" aria-label="Show password" class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-muted-strong hover:text-forest-ink transition rounded-md">
         <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
         <svg class="eye-closed hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
       </button>
@@ -461,7 +475,7 @@ function signInFormHTML(){
     <button class="btn btn-forest w-full mt-4">Sign In</button>
   </form>
   <div class="text-center mt-6 text-sm">
-    <span class="text-gray-600">New here?</span>
+    <span class="text-muted-strong">New here?</span>
     <button type="button" onclick="setAuthTab('up')" class="text-gold underline ml-1">Create an account</button>
   </div>`;
 }
@@ -477,12 +491,12 @@ function signUpFormHTML(){
     <input type="email" id="su-email" placeholder="you@example.com" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label>Password</label>
     ${passwordFieldHTML('su-pw', 'required autocomplete="new-password" aria-describedby="su-pw-hint"')}
-    <p class="text-[11px] text-gray-500 mt-1" id="su-pw-hint">Must start with a special character (!, @, #, $, %, ^, &, *) and be at least 6 characters.</p>
+    <p class="text-[11px] text-muted mt-1" id="su-pw-hint">Must start with a special character (!, @, #, $, %, ^, &, *) and be at least 6 characters.</p>
     <div id="auth-err" class="text-xs mt-2"></div>
     <button class="btn btn-forest w-full mt-4">Create Account</button>
   </form>
   <div class="text-center mt-6 text-sm">
-    <span class="text-gray-600">Already have an account?</span>
+    <span class="text-muted-strong">Already have an account?</span>
     <button type="button" onclick="setAuthTab('in')" class="text-gold underline ml-1">Sign in</button>
   </div>`;
 }
@@ -505,10 +519,10 @@ async function myOrders(){
 
 function orderStatusBadge(s){
   const t = (s||'').toLowerCase();
-  let cls = 'bg-gray-100 text-gray-600';
+  let cls = 'bg-surface-soft text-muted-strong';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
-  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-dark';
+  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
   else if(t.includes('way')) cls = 'bg-forest text-cream';
   else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
   else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
@@ -523,17 +537,17 @@ async function renderAccount(){
     <section class="max-w-md mx-auto px-6 py-16">
       <div class="text-center mb-8">
         <h1 class="serif text-3xl">My Account</h1>
-        <p class="text-sm text-gray-500 mt-2">Sign in to track your orders, or create an account for faster checkout.</p>
+        <p class="text-sm text-muted mt-2">Sign in to track your orders, or create an account for faster checkout.</p>
       </div>
-      <div class="flex border-b border-[#e4dcc7] mb-6">
-        <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest font-medium">Sign In</button>
-        <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-gray-500">Create Account</button>
+      <div class="flex border-b border-edge mb-6">
+        <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest-ink font-medium">Sign In</button>
+        <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-muted">Create Account</button>
       </div>
       <div id="auth-panel">${signInFormHTML()}</div>
     </section>`;
     return;
   }
-  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-[#e4dcc7] border-t-gold rounded-full animate-spin"></div><p class="text-sm text-gray-500">Loading your account…</p></div>`;
+  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-edge border-t-gold rounded-full animate-spin"></div><p class="text-sm text-muted">Loading your account…</p></div>`;
   const orders = await myOrders();
   const name = profileName(me);
   const email = (me.email || profileEmail(me));
@@ -543,32 +557,32 @@ async function renderAccount(){
     <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
       <div>
         <h1 class="serif text-3xl">Hello, ${name.split(' ')[0]}</h1>
-        <p class="text-sm text-gray-500 mt-1">${email} · ${phone}</p>
+        <p class="text-sm text-muted mt-1">${email} · ${phone}</p>
       </div>
       <button onclick="signOut()" class="btn btn-outline btn-sm">Sign Out</button>
     </div>
     <div class="text-xs tracking-wideish uppercase text-gold mb-3">My Orders (${orders.length})</div>
     ${orders.length===0 ? `
-      <div class="border border-dashed border-[#e4dcc7] p-8 text-center">
-        <p class="text-sm text-gray-600 mb-3">You haven't placed any orders yet.</p>
+      <div class="border border-dashed border-edge p-8 text-center">
+        <p class="text-sm text-muted-strong mb-3">You haven't placed any orders yet.</p>
         <a href="#shop" class="btn btn-forest btn-sm">Start Shopping</a>
       </div>` :
       `<div class="space-y-4">
         ${orders.map(o=>`
-        <a href="#order?id=${encodeURIComponent(o.id)}" class="block border border-[#e4dcc7] p-5 hover:border-gold transition">
+        <a href="#order?id=${encodeURIComponent(o.id)}" class="block border border-edge p-5 hover:border-gold transition">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
+            <span class="text-sm font-semibold text-forest-ink">${o.id}</span>
             ${orderStatusBadge(o.status)}
           </div>
-          <div class="text-xs text-gray-500 mb-2">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
-          <div class="text-sm text-gray-700 space-y-0.5">
-            ${(o.items||[]).slice(0,2).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
-            ${(o.items||[]).length>2 ? `<div class="text-xs text-gray-400 mt-1">+${(o.items||[]).length-2} more item(s)</div>`:''}
+          <div class="text-xs text-muted mb-2">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+          <div class="text-sm text-ink space-y-0.5">
+            ${(o.items||[]).slice(0,2).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-muted">(${i.size})</span>`:''}</div>`).join('')}
+            ${(o.items||[]).length>2 ? `<div class="text-xs text-muted mt-1">+${(o.items||[]).length-2} more item(s)</div>`:''}
           </div>
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-[#eee3cf]">
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-edge-soft">
             <span class="text-sm">${orderPayLabel(o)}</span>
             <div class="flex items-center gap-3">
-              <span class="serif text-lg text-forest-dark">${naira(o.total)}</span>
+              <span class="serif text-lg text-forest-ink">${naira(o.total)}</span>
               <span class="flex items-center gap-1 text-xs text-gold underline">View
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
               </span>
@@ -601,10 +615,10 @@ function statusTimelineHTML(status){
       const active = i === idx;
       return `
       <div class="flex-1 flex items-start min-w-0">
-        ${i>0?`<div class="mt-1.5 flex-1 h-0.5 min-w-2 ${done?'bg-forest':'bg-[#e4dcc7]'}"></div>`:''}
+        ${i>0?`<div class="mt-1.5 flex-1 h-0.5 min-w-2 ${done?'bg-forest':'bg-surface-soft'}"></div>`:''}
         <div class="flex flex-col items-center px-1">
-          <div class="w-3.5 h-3.5 rounded-full border-2 ${done?'bg-forest border-forest':'bg-cream border-[#d9cdb4]'}"></div>
-          <span class="text-[10px] mt-1.5 text-center leading-tight ${active?'text-forest font-semibold':done?'text-forest-dark':'text-gray-400'}">${s}</span>
+          <div class="w-3.5 h-3.5 rounded-full border-2 ${done?'bg-forest border-forest':'bg-page border-edge-soft'}"></div>
+          <span class="text-[10px] mt-1.5 text-center leading-tight ${active?'text-forest-ink font-semibold':done?'text-forest-ink':'text-muted'}">${s}</span>
         </div>
       </div>`;
     }).join('')}
@@ -671,25 +685,25 @@ function renderCart(){
   const lines = cartLines();
   const wrap = document.getElementById('cart-items');
   if(lines.length===0){
-    wrap.innerHTML = `<div class="text-center py-16 text-sm text-gray-600">Your bag is empty.<br><a href="#shop" onclick="closeAllOverlays()" class="text-gold underline mt-3 inline-block">Continue shopping</a></div>`;
+    wrap.innerHTML = `<div class="text-center py-16 text-sm text-muted-strong">Your bag is empty.<br><a href="#shop" onclick="closeAllOverlays()" class="text-gold underline mt-3 inline-block">Continue shopping</a></div>`;
   } else {
     wrap.innerHTML = lines.map(l => `
-      <div class="flex gap-4 py-5 border-b border-[#f1ebdb]">
+      <div class="flex gap-4 py-5 border-b border-edge-soft">
         <img src="${l.product.img}" class="w-20 h-24 object-cover rounded-sm flex-shrink-0">
         <div class="flex-1 min-w-0">
           <div class="flex justify-between gap-2">
             <div class="serif text-lg leading-snug pr-1">${l.product.name}</div>
-            <button onclick="removeFromCart('${l.key}')" class="w-6 h-6 shrink-0 rounded-full border border-[#e4dcc7] text-gray-600 hover:text-red-500 hover:border-red-300 flex items-center justify-center text-sm leading-none transition" aria-label="Remove">&times;</button>
+            <button onclick="removeFromCart('${l.key}')" class="w-6 h-6 shrink-0 rounded-full border border-edge text-muted-strong hover:text-red-500 hover:border-red-300 flex items-center justify-center text-sm leading-none transition" aria-label="Remove">&times;</button>
           </div>
-          ${l.size ? `<div class="text-xs text-gray-500 mt-0.5">${l.size}</div>`:''}
-          ${l.note ? `<div class="text-xs text-gray-500 italic mt-0.5">"${l.note}"</div>`:''}
+          ${l.size ? `<div class="text-xs text-muted mt-0.5">${l.size}</div>`:''}
+          ${l.note ? `<div class="text-xs text-muted italic mt-0.5">"${l.note}"</div>`:''}
           <div class="flex items-center justify-between mt-3">
             <div class="flex items-center gap-2">
               <div class="qty-btn" onclick="setQty('${l.key}',${l.qty-1})" aria-label="Decrease">−</div>
               <span class="text-sm w-5 text-center tabular-nums">${l.qty}</span>
               <div class="qty-btn" onclick="setQty('${l.key}',${l.qty+1})" aria-label="Increase">+</div>
             </div>
-            <div class="text-sm font-semibold text-forest-dark tabular-nums">${naira(l.lineTotal)}</div>
+            <div class="text-sm font-semibold text-forest-ink tabular-nums">${naira(l.lineTotal)}</div>
           </div>
         </div>
       </div>`).join('');
@@ -710,18 +724,18 @@ function renderWishlistDrawer(){
   const wl = DB.wishlist.map(findProduct).filter(Boolean);
   const wrap = document.getElementById('wishlist-items');
   if(wl.length===0){
-    wrap.innerHTML = `<div class="text-center py-16 text-sm text-gray-600">Nothing saved yet.</div>`;
+    wrap.innerHTML = `<div class="text-center py-16 text-sm text-muted-strong">Nothing saved yet.</div>`;
     return;
   }
   wrap.innerHTML = wl.map(p=>`
-    <div class="flex gap-4 py-4 border-b border-[#f1ebdb]">
+    <div class="flex gap-4 py-4 border-b border-edge-soft">
       <img src="${p.img}" class="w-20 h-24 object-cover flex-shrink-0 cursor-pointer" onclick="openProduct('${p.id}')">
       <div class="flex-1">
         <div class="serif text-lg leading-tight">${p.name}</div>
         <div class="text-sm text-gold mt-1">${naira(p.price)}</div>
         <div class="flex gap-3 mt-2 text-xs">
-          <button onclick="addToCart('${p.id}',1,(${JSON.stringify(p.sizes)})[0]);" class="text-forest underline">Add to bag</button>
-          <button onclick="toggleWishlist('${p.id}')" class="text-gray-600 underline">Remove</button>
+          <button onclick="addToCart('${p.id}',1,(${JSON.stringify(p.sizes)})[0]);" class="text-forest-ink underline">Add to bag</button>
+          <button onclick="toggleWishlist('${p.id}')" class="text-muted-strong underline">Remove</button>
         </div>
       </div>
     </div>`).join('');
@@ -760,7 +774,7 @@ function sendNewsletterAdmin(){
   if(btn){ btn.disabled = true; btn.textContent = 'Queuing…'; }
   const done = (msg, ok=true)=>{
     status.textContent = msg;
-    status.className = 'text-sm mt-3 ' + (ok?'text-forest':'text-red-500');
+    status.className = 'text-sm mt-3 ' + (ok?'text-forest-ink':'text-red-500');
     if(btn){ btn.disabled = false; btn.textContent = 'Send newsletter again'; }
   };
   if(sb){
@@ -876,7 +890,7 @@ function productCard(p){
       <div class="quick-add" onclick="event.stopPropagation(); addToCart('${p.id}',1,(${JSON.stringify(p.sizes)})[0]);">QUICK ADD +</div>
     </div>
     <div class="pt-3">
-      <div class="text-[11px] tracking-wideish uppercase text-gray-600">${p.cat}</div>
+      <div class="text-[11px] tracking-wideish uppercase text-muted-strong">${p.cat}</div>
       <div class="serif text-lg leading-snug mt-0.5">${p.name}</div>
       <div class="text-sm text-gold mt-1">${naira(p.price)}</div>
     </div>
@@ -914,7 +928,7 @@ function renderHome(){
 
   <!-- marquee -->
   <div class="bg-gold-pale border-y border-gold-light/40 py-3 overflow-hidden">
-    <div class="text-[11px] sm:text-xs tracking-[.25em] uppercase text-forest-dark text-center">
+    <div class="text-[11px] sm:text-xs tracking-[.25em] uppercase text-forest-ink text-center">
       Handcrafted &nbsp;·&nbsp; Curated &nbsp;·&nbsp; Timeless &nbsp;·&nbsp; Made In Nigeria &nbsp;·&nbsp; Gift-Ready
     </div>
   </div>
@@ -934,7 +948,7 @@ function renderHome(){
   </section>
 
   <!-- NEW ARRIVALS carousel -->
-  <section class="bg-white py-20 border-y border-[#eee3cf]">
+  <section class="bg-surface py-20 border-y border-edge-soft">
     <div class="max-w-7xl mx-auto px-6">
       <div class="mb-10 reveal">
         <div class="text-xs tracking-wideish uppercase text-gold mb-2">Just In</div>
@@ -978,15 +992,15 @@ function renderHome(){
       <div class="text-xs tracking-wideish uppercase text-gold mb-2">By Stone</div>
       <h2 class="serif text-4xl">The Gemstone Collection</h2>
     </div>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-5 reveal">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-6 reveal">
       ${[
         ["Tiger's Eye",'#B9822F'],['Onyx','#1C1C1C'],['Hematite','#6B7076'],
         ['Agate','#3A3F6B'],['Malachite','#2F7A4F'],['Lava Stone','#33312F'],
         ['Pearl','#F2ECE2'],['Wood','#8B5E34']
       ].map(([name,c])=>`
         <a href="#shop?q=${encodeURIComponent(name)}" class="group text-center">
-          <div class="w-full aspect-square rounded-full mx-auto mb-3 border border-[#e4dcc7] group-hover:border-gold transition flex items-center justify-center" style="background:${c}22">
-            <div class="w-10 h-10 rounded-full" style="background:${c}"></div>
+          <div class="w-16 sm:w-20 aspect-square rounded-full mx-auto mb-2 border border-edge group-hover:border-gold transition flex items-center justify-center" style="background:${c}22">
+            <div class="w-6 sm:w-8 h-6 sm:h-8 rounded-full" style="background:${c}"></div>
           </div>
           <div class="text-sm serif">${name}</div>
         </a>`).join('')}
@@ -1010,7 +1024,7 @@ function renderHome(){
           <div class="reveal">
             <div class="hr-gold w-10 mb-4"></div>
             <div class="serif text-xl mb-2">${t}</div>
-            <p class="text-sm text-forest-dark/70 leading-relaxed">${d}</p>
+            <p class="text-sm text-forest-ink/70 leading-relaxed">${d}</p>
           </div>`).join('')}
       </div>
     </div>
@@ -1046,8 +1060,8 @@ function renderHome(){
   function showTestimonial(){
     const t = DEFAULT_TESTIMONIALS[ti];
     slideEl.innerHTML = `
-      <p class="serif italic text-2xl sm:text-3xl leading-snug text-forest-dark mb-5">"${t.quote}"</p>
-      <div class="text-xs tracking-wideish uppercase text-gray-500">— ${t.name}</div>`;
+      <p class="serif italic text-2xl sm:text-3xl leading-snug text-forest-ink mb-5">"${t.quote}"</p>
+      <div class="text-xs tracking-wideish uppercase text-muted">— ${t.name}</div>`;
     ti = (ti+1) % DEFAULT_TESTIMONIALS.length;
   }
   showTestimonial();
@@ -1081,14 +1095,14 @@ function renderShop(params){
   </section>
   <div class="max-w-7xl mx-auto px-6 py-12 grid md:grid-cols-[220px_1fr] gap-10">
     <aside class="hidden md:block">
-      <div class="text-xs tracking-wideish uppercase text-gray-600 mb-4">Category</div>
+      <div class="text-xs tracking-wideish uppercase text-muted-strong mb-4">Category</div>
       <ul class="space-y-2 text-sm">
         <li><a href="#shop" class="${activeCat==='All'?'text-gold':''} hover:text-gold">All (${all.length})</a></li>
         ${CATEGORIES.map(c=>`<li><a href="#shop?cat=${encodeURIComponent(c)}" class="${activeCat===c?'text-gold':''} hover:text-gold">${c} (${all.filter(p=>p.cat===c).length})</a></li>`).join('')}
       </ul>
       <div class="hr-gold my-6"></div>
-      <div class="text-xs tracking-wideish uppercase text-gray-600 mb-3">Need Something Special?</div>
-      <a href="#custom" class="text-sm text-forest underline">Customize a piece →</a>
+      <div class="text-xs tracking-wideish uppercase text-muted-strong mb-3">Need Something Special?</div>
+      <a href="#custom" class="text-sm text-forest-ink underline">Customize a piece →</a>
     </aside>
     <div>
       <div class="flex flex-wrap items-center justify-between gap-3 mb-8">
@@ -1103,7 +1117,7 @@ function renderShop(params){
         </select>
       </div>
       ${list.length ? `<div class="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">${list.map(productCard).join('')}</div>`
-        : `<div class="text-center py-24 text-gray-600 serif text-xl">No pieces found. Try another search.</div>`}
+        : `<div class="text-center py-24 text-muted-strong serif text-xl">No pieces found. Try another search.</div>`}
     </div>
   </div>`;
 }
@@ -1115,15 +1129,15 @@ function productDetailHTML(p, isModal){
   const inWish = DB.wishlist.includes(p.id);
   return `
   <div class="grid md:grid-cols-2">
-    <div class="aspect-square md:aspect-auto bg-[#eee3cf]">
+    <div class="aspect-square md:aspect-auto bg-surface-soft">
       <img src="${p.img}" class="w-full h-full object-cover" alt="${p.name}">
     </div>
     <div class="p-6 sm:p-10">
       ${isModal ? `<button onclick="closeModal('product-modal')" class="absolute top-4 right-4 text-2xl leading-none z-10">&times;</button>`:''}
-      <div class="text-xs tracking-wideish uppercase text-gray-600 mb-2">${p.cat}</div>
+      <div class="text-xs tracking-wideish uppercase text-muted-strong mb-2">${p.cat}</div>
       <h1 class="serif text-3xl sm:text-4xl mb-3">${p.name}</h1>
       <div class="text-xl text-gold mb-5">${naira(p.price)}</div>
-      <p class="text-sm text-gray-600 leading-relaxed mb-6">${p.desc}</p>
+      <p class="text-sm text-muted-strong leading-relaxed mb-6">${p.desc}</p>
 
       <div class="mb-5">
         <label>Size / Option</label>
@@ -1147,12 +1161,12 @@ function productDetailHTML(p, isModal){
         <button onclick="addFromDetail('${p.id}','${isModal?'m':'p'}')" class="btn btn-forest flex-1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L5 3H2"/></svg> Add to Cart</button>
         <button onclick="addFromDetail('${p.id}','${isModal?'m':'p'}',true)" class="btn btn-gold flex-1">Buy Now <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
       </div>
-      <button onclick="toggleWishlist('${p.id}')" class="text-sm flex items-center gap-2 text-gray-500 hover:text-gold">
+      <button onclick="toggleWishlist('${p.id}')" class="text-sm flex items-center gap-2 text-muted hover:text-gold">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="${inWish?'#B8912F':'none'}" stroke="currentColor" stroke-width="1.6"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         ${inWish ? 'Saved to Wishlist':'Add to Wishlist'}
       </button>
       <div class="hr-gold my-6"></div>
-      <div class="text-xs text-gray-600 space-y-1">
+      <div class="text-xs text-muted-strong space-y-1">
         <div>${p.stock>0 ? p.stock+' in stock — ships in 2–4 business days' : 'Currently out of stock'}</div>
         <div>Pickup available in Lagos · Nationwide delivery</div>
       </div>
@@ -1200,24 +1214,24 @@ function renderAbout(){
     <h1 class="serif text-4xl sm:text-5xl">About Zorie Collectibles</h1>
   </section>
   <section class="max-w-4xl mx-auto px-6 py-16">
-    <p class="text-lg leading-relaxed text-gray-700 mb-6">Zorie Collectibles is a lifestyle and jewellery brand focused on providing beautiful, quality and meaningful pieces that allow people to express themselves with confidence.</p>
-    <p class="leading-relaxed text-gray-600 mb-6">We specialize in handcrafted and carefully curated bead jewellery, including gemstone bracelets, necklaces, customized name-tag beads, freshwater pearls, coral beads and other unique accessories.</p>
-    <p class="leading-relaxed text-gray-600 mb-10">At Zorie Collectibles, we believe jewellery should be more than something you wear. It should tell a story, represent a memory, celebrate a person or simply make you feel beautiful. Our goal is to combine luxury, simplicity, creativity and affordability while delivering an exceptional customer experience.</p>
+    <p class="text-lg leading-relaxed text-ink mb-6">Zorie Collectibles is a lifestyle and jewellery brand focused on providing beautiful, quality and meaningful pieces that allow people to express themselves with confidence.</p>
+    <p class="leading-relaxed text-muted-strong mb-6">We specialize in handcrafted and carefully curated bead jewellery, including gemstone bracelets, necklaces, customized name-tag beads, freshwater pearls, coral beads and other unique accessories.</p>
+    <p class="leading-relaxed text-muted-strong mb-10">At Zorie Collectibles, we believe jewellery should be more than something you wear. It should tell a story, represent a memory, celebrate a person or simply make you feel beautiful. Our goal is to combine luxury, simplicity, creativity and affordability while delivering an exceptional customer experience.</p>
 
     <div class="grid sm:grid-cols-2 gap-8 mb-14">
-      <div class="border border-[#e4dcc7] p-7">
+      <div class="border border-edge p-7">
         <div class="text-xs tracking-wideish uppercase text-gold mb-3">Mission</div>
-        <p class="serif text-xl leading-snug text-forest-dark">To provide beautiful, quality and meaningful jewellery and lifestyle pieces at accessible prices while delivering exceptional customer service.</p>
+        <p class="serif text-xl leading-snug text-forest-ink">To provide beautiful, quality and meaningful jewellery and lifestyle pieces at accessible prices while delivering exceptional customer service.</p>
       </div>
-      <div class="border border-[#e4dcc7] p-7">
+      <div class="border border-edge p-7">
         <div class="text-xs tracking-wideish uppercase text-gold mb-3">Vision</div>
-        <p class="serif text-xl leading-snug text-forest-dark">To build a trusted African lifestyle and jewellery brand recognized for quality, creativity, excellent service and timeless pieces — enjoyed locally and globally.</p>
+        <p class="serif text-xl leading-snug text-forest-ink">To build a trusted African lifestyle and jewellery brand recognized for quality, creativity, excellent service and timeless pieces — enjoyed locally and globally.</p>
       </div>
     </div>
 
     <div class="text-xs tracking-wideish uppercase text-gold mb-5 text-center">Our Values</div>
     <div class="flex flex-wrap justify-center gap-3 mb-16">
-      ${['Quality','Integrity','Creativity','Customer Satisfaction','Affordability','Trust','Excellence'].map(v=>`<span class="border border-gold-light text-forest-dark text-sm px-4 py-2 rounded-full">${v}</span>`).join('')}
+      ${['Quality','Integrity','Creativity','Customer Satisfaction','Affordability','Trust','Excellence'].map(v=>`<span class="border border-gold-light text-forest-ink text-sm px-4 py-2 rounded-full">${v}</span>`).join('')}
     </div>
   </section>`;
 }
@@ -1284,7 +1298,7 @@ function checkoutFormHTML(lines, discountPct){
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Payment Method</div>
       <div class="border border-gold-light/50 bg-gold-pale/40 rounded-md p-4 mb-6">
         <div class="flex items-center gap-3 text-sm">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="text-forest shrink-0"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="text-forest-ink shrink-0"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
           <span>Pay by <b>transfer to our OPay account</b>. You'll see the account details after placing your order.</span>
         </div>
       </div>
@@ -1310,7 +1324,7 @@ function checkoutFormHTML(lines, discountPct){
             <img src="${l.product.img}" class="w-12 h-14 object-cover">
             <div class="flex-1">
               <div>${l.product.name}</div>
-              <div class="text-gray-600 text-xs">${l.size||''} · Qty ${l.qty}</div>
+              <div class="text-muted-strong text-xs">${l.size||''} · Qty ${l.qty}</div>
             </div>
             <div>${naira(l.lineTotal)}</div>
           </div>`).join('')}
@@ -1320,7 +1334,7 @@ function checkoutFormHTML(lines, discountPct){
         <div class="flex justify-between"><span>Subtotal</span><span>${naira(subtotal)}</span></div>
         <div class="flex justify-between"><span>Discount</span><span id="co-discount-line">${discountAmt?('-'+naira(discountAmt)):'—'}</span></div>
         <div class="flex justify-between"><span>Delivery</span><span>${delivery===0?'Free':naira(delivery)}</span></div>
-        <div class="flex justify-between font-medium text-base pt-2 border-t border-[#eee3cf]"><span>Total</span><span id="co-total">${naira(total)}</span></div>
+        <div class="flex justify-between font-medium text-base pt-2 border-t border-edge-soft"><span>Total</span><span id="co-total">${naira(total)}</span></div>
       </div>
     </div>
   </div>`;
@@ -1333,7 +1347,7 @@ function applyDiscount(){
   const code = el.value.trim().toUpperCase();
   const d = DB.discounts.find(x=>x.code===code && x.active);
   const msg = document.getElementById('discount-msg');
-  if(d){ appliedDiscount = d.pct; msg.textContent = `Code applied — ${d.pct}% off`; msg.className='text-xs mt-1 text-forest'; }
+  if(d){ appliedDiscount = d.pct; msg.textContent = `Code applied — ${d.pct}% off`; msg.className='text-xs mt-1 text-forest-ink'; }
   else { appliedDiscount = 0; msg.textContent = 'Invalid or inactive code'; msg.className='text-xs mt-1 text-red-500'; }
   renderCheckoutPage(true);
 }
@@ -1344,10 +1358,10 @@ function renderCheckoutPage(preserveDiscount){
       <div class="max-w-md mx-auto px-6 py-16 relative">
         <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
         <h2 class="serif text-3xl mb-1 text-center">Checkout</h2>
-        <p class="text-sm text-gray-500 text-center mb-6">Please sign in or create an account to place your order.</p>
-        <div class="flex border-b border-[#e4dcc7] mb-6">
-          <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest font-medium">Sign In</button>
-          <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-gray-500">Create Account</button>
+        <p class="text-sm text-muted text-center mb-6">Please sign in or create an account to place your order.</p>
+        <div class="flex border-b border-edge mb-6">
+          <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest-ink font-medium">Sign In</button>
+          <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-muted">Create Account</button>
         </div>
         <div id="auth-panel">${signInFormHTML()}</div>
       </div>`;
@@ -1426,11 +1440,11 @@ async function startOpay(order, btn, btnLabel){
 
 async function renderOpayCallback(params){
   const ref = params.ref;
-  document.getElementById('app').innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-[#e4dcc7] border-t-gold rounded-full animate-spin"></div><p class="text-sm text-gray-500">Confirming your payment…</p></div>`;
+  document.getElementById('app').innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-edge border-t-gold rounded-full animate-spin"></div><p class="text-sm text-muted">Confirming your payment…</p></div>`;
   const pend = JSON.parse(sessionStorage.getItem('zorie_pending_orders') || '{}');
   const entry = pend[ref];
   if(!entry || !entry.order){
-    document.getElementById('app').innerHTML = `<div class="text-center py-24"><p class="serif text-xl mb-3">We couldn't find your pending order.</p><p class="text-sm text-gray-500 mb-6">You may have already completed it.</p><a href="#track" class="btn btn-forest">Track Order</a></div>`;
+    document.getElementById('app').innerHTML = `<div class="text-center py-24"><p class="serif text-xl mb-3">We couldn't find your pending order.</p><p class="text-sm text-muted mb-6">You may have already completed it.</p><a href="#track" class="btn btn-forest">Track Order</a></div>`;
     return;
   }
   try{
@@ -1441,7 +1455,7 @@ async function renderOpayCallback(params){
       const st = res.data && res.data.paymentStatus;
       document.getElementById('app').innerHTML = `<div class="text-center py-24">
         <p class="serif text-2xl mb-3">Payment not completed</p>
-        <p class="text-sm text-gray-500 mb-2">${st ? 'Status: '+st : 'Your payment could not be confirmed.'}</p>
+        <p class="text-sm text-muted mb-2">${st ? 'Status: '+st : 'Your payment could not be confirmed.'}</p>
         <a href="#checkout" class="btn btn-forest">Back to Checkout</a></div>`;
       return;
     }
@@ -1450,7 +1464,7 @@ async function renderOpayCallback(params){
     showInvoice(res.data.order);
   }catch(err){
     console.error(err);
-    document.getElementById('app').innerHTML = `<div class="text-center py-24"><p class="text-sm text-gray-500">Something went wrong confirming your payment. Please contact us with order <b>${entry.order.id}</b>.</p></div>`;
+    document.getElementById('app').innerHTML = `<div class="text-center py-24"><p class="text-sm text-muted">Something went wrong confirming your payment. Please contact us with order <b>${entry.order.id}</b>.</p></div>`;
   }
 }
 
@@ -1499,7 +1513,7 @@ async function confirmOpayPayment(orderId){
   const wrap = document.getElementById('opay-proof-wrap');
   const mark = ()=>{
     if(wrap) wrap.innerHTML = `
-      <div class="flex items-center gap-2 text-forest font-medium">
+      <div class="flex items-center gap-2 text-forest-ink font-medium">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
         Payment proof received — we'll confirm your order shortly.
       </div>`;
@@ -1515,40 +1529,40 @@ function showInvoice(order){
     <div id="invoice-print">
       <div class="text-center mb-6">
         <div class="serif text-3xl">Zorie <span class="italic text-gold">Collectibles</span></div>
-        <div class="text-xs text-gray-600 mt-1">zoriecollectibles@gmail.com · Lagos, Nigeria</div>
+        <div class="text-xs text-muted-strong mt-1">zoriecollectibles@gmail.com · Lagos, Nigeria</div>
       </div>
       <div class="flex justify-center mb-6">
-        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#173F30" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
       </div>
       <h2 class="serif text-2xl text-center mb-1">Order Confirmed</h2>
-      <p class="text-center text-sm text-gray-500 mb-8">Thank you, ${order.customer.name.split(' ')[0]}! A confirmation email is on its way to ${order.customer.email}.</p>
+      <p class="text-center text-sm text-muted mb-8">Thank you, ${order.customer.name.split(' ')[0]}! A confirmation email is on its way to ${order.customer.email}.</p>
 
-      <div class="grid sm:grid-cols-2 gap-4 text-sm mb-6 border-y border-[#eee3cf] py-4">
-        <div><span class="text-gray-600">Order No.</span><br>${order.id}</div>
-        <div><span class="text-gray-600">Date</span><br>${new Date(order.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
-        <div><span class="text-gray-600">Payment</span><br>${((order.payMethod||order.paymethod)==='paystack') ? 'Paystack' : ((order.payMethod||order.paymethod)==='opay' ? 'OPay (Transfer)' : 'OPay / Bank transfer')}${order.payRef||order.payref?` · ${order.payRef||order.payref}`:''}</div>
-        <div><span class="text-gray-600">Delivery To</span><br>${order.customer.address}, ${order.customer.city}</div>
+      <div class="grid sm:grid-cols-2 gap-4 text-sm mb-6 border-y border-edge-soft py-4">
+        <div><span class="text-muted-strong">Order No.</span><br>${order.id}</div>
+        <div><span class="text-muted-strong">Date</span><br>${new Date(order.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+        <div><span class="text-muted-strong">Payment</span><br>${((order.payMethod||order.paymethod)==='paystack') ? 'Paystack' : ((order.payMethod||order.paymethod)==='opay' ? 'OPay (Transfer)' : 'OPay / Bank transfer')}${order.payRef||order.payref?` · ${order.payRef||order.payref}`:''}</div>
+        <div><span class="text-muted-strong">Delivery To</span><br>${order.customer.address}, ${order.customer.city}</div>
       </div>
 
       <table class="w-full text-sm mb-6 responsive">
-        <thead><tr class="text-left text-xs text-gray-600"><th class="pb-2">Item</th><th class="pb-2">Qty</th><th class="pb-2 text-right">Total</th></tr></thead>
+        <thead><tr class="text-left text-xs text-muted-strong"><th class="pb-2">Item</th><th class="pb-2">Qty</th><th class="pb-2 text-right">Total</th></tr></thead>
         <tbody>
-          ${order.items.map(i=>`<tr class="border-t border-[#f1ebdb]"><td data-label="Item" class="py-2">${i.name}${i.size?` <span class="text-gray-600 text-xs">(${i.size})</span>`:''}${i.note?` <span class="text-gray-600 text-xs italic">"${i.note}"</span>`:''}</td><td data-label="Qty" class="py-2">${i.qty}</td><td data-label="Total" class="py-2 text-right">${naira(i.lineTotal)}</td></tr>`).join('')}
+          ${order.items.map(i=>`<tr class="border-t border-edge-soft"><td data-label="Item" class="py-2">${i.name}${i.size?` <span class="text-muted-strong text-xs">(${i.size})</span>`:''}${i.note?` <span class="text-muted-strong text-xs italic">"${i.note}"</span>`:''}</td><td data-label="Qty" class="py-2">${i.qty}</td><td data-label="Total" class="py-2 text-right">${naira(i.lineTotal)}</td></tr>`).join('')}
         </tbody>
       </table>
       <div class="space-y-1 text-sm mb-8">
         <div class="flex justify-between"><span>Subtotal</span><span>${naira(order.subtotal)}</span></div>
         <div class="flex justify-between"><span>Discount</span><span>${order.discount?('-'+naira(order.discount)):'—'}</span></div>
         <div class="flex justify-between"><span>Delivery</span><span>${order.delivery===0?'Free':naira(order.delivery)}</span></div>
-        <div class="flex justify-between font-medium text-base border-t border-[#eee3cf] pt-2"><span>Total Paid</span><span>${naira(order.total)}</span></div>
+        <div class="flex justify-between font-medium text-base border-t border-edge-soft pt-2"><span>Total Paid</span><span>${naira(order.total)}</span></div>
       </div>
       ${(order.payMethod||order.paymethod)==='opay' ? `
       <div class="border border-gold-light/60 bg-gold-pale/50 rounded-md p-4 mb-8 text-sm">
-        <div class="font-semibold text-forest-dark mb-1">Complete your OPay transfer</div>
-        <p class="text-gray-600 mb-3">Transfer <b>${naira(order.total)}</b> to the OPay account below, then send your proof of payment:</p>
+        <div class="font-semibold text-forest-ink mb-1">Complete your OPay transfer</div>
+        <p class="text-muted-strong mb-3">Transfer <b>${naira(order.total)}</b> to the OPay account below, then send your proof of payment:</p>
         <div class="mb-4">
-          <span class="text-gray-500">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b><br>
-          <span class="text-gray-500">Account Number:</span> <b class="tracking-wider">${CONFIG.opay.accountNumber}</b> · <span class="text-gray-500">Bank:</span> OPay
+          <span class="text-muted">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b><br>
+          <span class="text-muted">Account Number:</span> <b class="tracking-wider">${CONFIG.opay.accountNumber}</b> · <span class="text-muted">Bank:</span> OPay
         </div>
         <div id="opay-proof-wrap" class="flex flex-wrap gap-3">
           <a href="https://wa.me/${CONFIG.store.whatsapp}?text=${encodeURIComponent('Hi Zorie Collectibles! I just paid '+naira(order.total)+' for order '+order.id+' via OPay transfer.')}" target="_blank" class="btn btn-gold btn-sm">Send proof on WhatsApp</a>
@@ -1594,45 +1608,45 @@ function orderPageActionsHTML(o){
   if(/awaiting/i.test(st)){
     return `
     <div class="border border-gold-light/60 bg-gold-pale/50 rounded-md p-4">
-      <div class="font-semibold text-forest-dark mb-1">Complete your OPay transfer</div>
-      <p class="text-gray-600 text-sm mb-3">Transfer <b>${naira(o.total)}</b> to the OPay account below, then send your proof of payment:</p>
+      <div class="font-semibold text-forest-ink mb-1">Complete your OPay transfer</div>
+      <p class="text-muted-strong text-sm mb-3">Transfer <b>${naira(o.total)}</b> to the OPay account below, then send your proof of payment:</p>
       <div class="text-sm mb-4">
-        <span class="text-gray-500">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b><br>
-        <span class="text-gray-500">Account Number:</span> <b class="tracking-wider">${CONFIG.opay.accountNumber}</b> · <span class="text-gray-500">Bank:</span> OPay
+        <span class="text-muted">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b><br>
+        <span class="text-muted">Account Number:</span> <b class="tracking-wider">${CONFIG.opay.accountNumber}</b> · <span class="text-muted">Bank:</span> OPay
       </div>
       <div class="flex flex-wrap gap-3">
         <a href="https://wa.me/${wa}?text=${encodeURIComponent('Hi Zorie Collectibles! I just paid '+naira(o.total)+' for order '+o.id+' via OPay transfer.')}" target="_blank" class="btn btn-gold btn-sm">Send proof on WhatsApp</a>
         <button data-confirm-pay onclick="orderPageConfirm('${o.id}')" class="btn btn-outline btn-sm">I have made payment</button>
       </div>
-      <p class="text-[11px] text-gray-500 mt-3">After you mark payment, we'll confirm your transfer and start preparing your order.</p>
+      <p class="text-[11px] text-muted mt-3">After you mark payment, we'll confirm your transfer and start preparing your order.</p>
     </div>`;
   }
   if(/verif/i.test(st)){
-    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
       <div>Your payment proof has been received — we're verifying it now.</div>${waBtn}
     </div>`;
   }
   if(/handcraft/i.test(st)){
-    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
       <div>Your payment is confirmed — we're handcrafting your order.</div>${waBtn}
     </div>`;
   }
   if(/way/i.test(st)){
-    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
       <div>Your order is on its way (${(o.customer||{}).method||'delivery'}). Sit tight!</div>${waBtn}
     </div>`;
   }
   if(/delivered/i.test(st)){
-    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
       <div>Your order has been delivered. Enjoy!</div>${waBtn}
     </div>`;
   }
   if(/cancel/i.test(st)){
-    return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+    return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
       <div>This order was cancelled. Need help? Chat with us.</div>${waBtn}
     </div>`;
   }
-  return `<div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+  return `<div class="border border-edge rounded-md p-4 text-sm text-muted-strong flex flex-wrap items-center justify-between gap-3">
     <div>Order is being processed. Updates will appear here.</div>${waBtn}
   </div>`;
 }
@@ -1647,20 +1661,20 @@ async function renderOrderPage(params){
     app.innerHTML = `
     <section class="max-w-md mx-auto px-6 py-16 text-center">
       <h1 class="serif text-3xl mb-3">Track Your Order</h1>
-      <p class="text-sm text-gray-500 mb-6">Sign in to view this order, or track it with your order number and email.</p>
+      <p class="text-sm text-muted mb-6">Sign in to view this order, or track it with your order number and email.</p>
       <a href="#account" class="btn btn-forest">Sign In</a>
       <a href="#track" class="btn btn-outline mt-3 w-full">Track Order</a>
     </section>`;
     return;
   }
   const id = params.id || '';
-  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-[#e4dcc7] border-t-gold rounded-full animate-spin"></div><p class="text-sm text-gray-500">Loading your order…</p></div>`;
+  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-edge border-t-gold rounded-full animate-spin"></div><p class="text-sm text-muted">Loading your order…</p></div>`;
   const order = await fetchOrder(id);
   if(!order){
     app.innerHTML = `
     <section class="max-w-md mx-auto px-6 py-16 text-center">
       <h1 class="serif text-3xl mb-3">Order not found</h1>
-      <p class="text-sm text-gray-500 mb-6">We couldn't find order ${id} in your account.</p>
+      <p class="text-sm text-muted mb-6">We couldn't find order ${id} in your account.</p>
       <a href="#account" class="btn btn-forest">Back to My Account</a>
     </section>`;
     return;
@@ -1682,9 +1696,9 @@ function renderOrderPageHTML(o){
       <h1 class="serif text-3xl">Order ${o.id}</h1>
       ${orderStatusBadge(o.status)}
     </div>
-    <div class="text-xs text-gray-500 mb-8">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})} · ${orderPayLabel(o)}</div>
+    <div class="text-xs text-muted mb-8">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})} · ${orderPayLabel(o)}</div>
 
-    <div class="border border-[#e4dcc7] rounded-md p-5 mb-6">
+    <div class="border border-edge rounded-md p-5 mb-6">
       <div class="text-[11px] uppercase tracking-wideish text-gold mb-3">Delivery Status</div>
       ${statusTimelineHTML(o.status)}
     </div>
@@ -1694,29 +1708,29 @@ function renderOrderPageHTML(o){
     <div class="grid sm:grid-cols-2 gap-6 mt-8">
       <div>
         <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Items</div>
-        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm">
+        <div class="border border-edge rounded-md p-4 text-sm">
           ${(o.items||[]).map(i=>`
             <div class="flex justify-between gap-3 py-1">
-              <div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}${i.note?` <span class="text-gray-500 italic">"${i.note}"</span>`:''}</div>
+              <div>${i.qty} × ${i.name}${i.size?` <span class="text-muted">(${i.size})</span>`:''}${i.note?` <span class="text-muted italic">"${i.note}"</span>`:''}</div>
               <div class="tabular-nums">${naira(i.lineTotal ?? i.price*i.qty)}</div>
-            </div>`).join('') || '<div class="text-gray-500">No items</div>'}
-          <div class="mt-2 pt-2 border-t border-[#eee3cf] space-y-1">
+            </div>`).join('') || '<div class="text-muted">No items</div>'}
+          <div class="mt-2 pt-2 border-t border-edge-soft space-y-1">
             <div class="flex justify-between"><span>Subtotal</span><span class="tabular-nums">${naira(o.subtotal)}</span></div>
             <div class="flex justify-between"><span>Discount</span><span class="tabular-nums">${o.discount?('-'+naira(o.discount)):'—'}</span></div>
             <div class="flex justify-between"><span>Delivery</span><span class="tabular-nums">${Number(o.delivery)===0?'Free':naira(o.delivery)}</span></div>
-            <div class="flex justify-between font-medium pt-1 border-t border-[#eee3cf]"><span>Total</span><span class="tabular-nums">${naira(o.total)}</span></div>
+            <div class="flex justify-between font-medium pt-1 border-t border-edge-soft"><span>Total</span><span class="tabular-nums">${naira(o.total)}</span></div>
           </div>
         </div>
       </div>
       <div>
         <div class="text-[11px] uppercase tracking-wideish text-gold mb-2">Delivery Details</div>
-        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-700 space-y-1">
+        <div class="border border-edge rounded-md p-4 text-sm text-ink space-y-1">
           <div>${c.name||'—'} · ${c.phone||'—'}</div>
           <div>${c.address||''}${c.city?', '+c.city:''}</div>
           <div>${c.method||''}</div>
         </div>
         <div class="text-[11px] uppercase tracking-wideish text-gold mb-2 mt-4">Payment</div>
-        <div class="border border-[#e4dcc7] rounded-md p-4 text-sm text-gray-700">${orderPayLabel(o)}${renderedOrderPayref?` · <span class="tabular-nums">${renderedOrderPayref}</span>`:''}</div>
+        <div class="border border-edge rounded-md p-4 text-sm text-ink">${orderPayLabel(o)}${renderedOrderPayref?` · <span class="tabular-nums">${renderedOrderPayref}</span>`:''}</div>
       </div>
     </div>
   </section>`;
@@ -1762,7 +1776,7 @@ function renderTrackOrder(){
   document.getElementById('app').innerHTML = `
   <section class="max-w-xl mx-auto px-6 py-20">
     <h1 class="serif text-3xl mb-2 text-center">Track Your Order</h1>
-    <p class="text-sm text-gray-500 text-center mb-8">Enter the order number and the email you used at checkout.</p>
+    <p class="text-sm text-muted text-center mb-8">Enter the order number and the email you used at checkout.</p>
     <form onsubmit="return trackOrder(event)" class="space-y-3 mb-6">
       <div>
         <label for="track-id">Order Number</label>
@@ -1774,18 +1788,18 @@ function renderTrackOrder(){
       </div>
       <button type="submit" class="btn btn-forest w-full">Track <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </form>
-    <p class="text-xs text-gray-500 text-center">Signed in? <a href="#account" class="text-gold underline">View my orders</a></p>
+    <p class="text-xs text-muted text-center">Signed in? <a href="#account" class="text-gold underline">View my orders</a></p>
     <div id="track-result"></div>
   </section>`;
 }
 function trackOrderHTML(order){
   const viewLink = currentUser() ? `<a href="#order?id=${encodeURIComponent(order.id)}" class="text-xs text-gold underline">View full details &rarr;</a>` : '';
   return `
-    <div class="border border-[#e4dcc7] p-6">
-      <div class="flex justify-between mb-3"><span class="text-sm text-gray-600">Order ${order.id}</span><span class="text-sm bg-gold-pale text-forest-dark px-3 py-1">${order.status}</span></div>
-      <div class="text-sm text-gray-500 mb-4">Placed ${new Date(order.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+    <div class="border border-edge p-6">
+      <div class="flex justify-between mb-3"><span class="text-sm text-muted-strong">Order ${order.id}</span><span class="text-sm bg-gold-pale text-forest-ink px-3 py-1">${order.status}</span></div>
+      <div class="text-sm text-muted mb-4">Placed ${new Date(order.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
       ${order.items.map(i=>`<div class="text-sm py-1">${i.qty} × ${i.name}</div>`).join('')}
-      <div class="flex items-center justify-between font-medium mt-3 pt-3 border-t border-[#eee3cf]">
+      <div class="flex items-center justify-between font-medium mt-3 pt-3 border-t border-edge-soft">
         <span>Total: ${naira(order.total)}</span>
         ${viewLink}
       </div>
@@ -1855,14 +1869,14 @@ async function renderAdminGate(){
   const authed = flag && (!sb || !!session);
   if(authed){ renderAdmin(); return; }
   document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center relative">
-    <a href="index.html" aria-label="Back to store" title="Back to store" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-[#e4dcc7] text-forest-dark hover:text-gold hover:border-gold flex items-center justify-center transition">
+    <a href="index.html" aria-label="Back to store" title="Back to store" class="absolute top-3 right-3 w-9 h-9 rounded-full border border-edge text-forest-ink hover:text-gold hover:border-gold flex items-center justify-center transition">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
     </a>
     <div class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest flex items-center justify-center">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
     </div>
     <h1 class="serif text-2xl mb-2">Admin Access</h1>
-    <p class="text-sm text-gray-500 mb-6">Sign in to manage your store.</p>
+    <p class="text-sm text-muted mb-6">Sign in to manage your store.</p>
     <button onclick="openAdminLogin()" class="btn btn-forest btn-sm">Sign In</button>
   </div>`;
 }
@@ -1899,14 +1913,32 @@ function payLabel(m){
 function statusBadge(s){
   s = s || '';
   const t = s.toLowerCase();
-  let cls = 'bg-gray-100 text-gray-600';
+  let cls = 'bg-surface-soft text-muted-strong';
   if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
-  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-dark';
+  else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
   else if(t.includes('way')) cls = 'bg-forest text-cream';
   else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
   else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s}</span>`;
+}
+function statusPalette(s){
+  const t = (s||'').toLowerCase();
+  if(t.includes('awaiting')) return { bg:'#fef3c7', text:'#92400e', border:'#f59e0b' };
+  if(t.includes('verif')) return { bg:'#e0f2fe', text:'#075985', border:'#38bdf8' };
+  if(t.includes('handcraft')) return { bg:'#faf0dc', text:'#173f30', border:'#d8bc72' };
+  if(t.includes('way')) return { bg:'#173f30', text:'#fbf7ec', border:'#173f30' };
+  if(t.includes('delivered')) return { bg:'#16a34a', text:'#ffffff', border:'#16a34a' };
+  if(t.includes('cancelled')) return { bg:'#fee2e2', text:'#b91c1c', border:'#f87171' };
+  return { bg:'#f3f4f6', text:'#4b5563', border:'#d1d5db' };
+}
+function statusStyle(s){
+  const p = statusPalette(s);
+  return `background:${p.bg};color:${p.text};border-color:${p.border};font-weight:600;`;
+}
+function changeOrderStatus(id, sel){
+  updateOrderStatus(id, sel.value);
+  sel.style.cssText = statusStyle(sel.value);
 }
 function loadEmailStats(){
   if(!sb) return Promise.resolve(null);
@@ -2100,15 +2132,15 @@ async function renderAdmin(){
     <div class="flex items-center justify-between mb-4 md:mb-6">
       <div>
         <h1 class="serif text-2xl sm:text-3xl leading-none">Owner Dashboard</h1>
-        <div class="text-xs text-gray-600 mt-1">Zorie Collectibles</div>
+        <div class="text-xs text-muted-strong mt-1">Zorie Collectibles</div>
       </div>
       <button onclick="adminLogout()" class="btn btn-outline btn-xs">Sign out</button>
     </div>
     <div class="grid md:grid-cols-[210px_1fr] gap-5 md:gap-8 items-start">
       <aside class="min-w-0">
-        <nav class="tab-scroll min-w-0 w-full max-w-full flex md:flex-col gap-1.5 overflow-x-auto overscroll-x-contain text-sm sticky top-16 md:top-24 z-30 bg-cream/95 backdrop-blur px-1 py-2 pr-2 md:pr-0 -mx-1 md:mx-0 md:px-0 md:py-0">
+        <nav class="tab-scroll min-w-0 w-full max-w-full flex md:flex-col gap-1.5 overflow-x-auto overscroll-x-contain text-sm sticky top-16 md:top-24 z-30 bg-page/95 backdrop-blur px-1 py-2 pr-2 md:pr-0 -mx-1 md:mx-0 md:px-0 md:py-0">
           ${ADMIN_TABS.map(([k,l,icon])=>`
-            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest text-white shadow-lg shadow-forest/20':'text-forest-dark hover:bg-gold-pale'}">
+            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest text-white shadow-lg shadow-forest/20':'text-forest-ink hover:bg-gold-pale'}">
               ${icon}<span>${l}</span>
             </button>`).join('')}
         </nav>
@@ -2156,69 +2188,69 @@ async function renderAdmin(){
           ['Avg Order', naira(avg), '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912F" stroke-width="1.8"><path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>'],
           ['Customers', customers, '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912F" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>']
         ].map(([l,v,icon])=>`<div class="stat-card p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-2"><div class="text-xs tracking-wideish uppercase text-gray-600">${l}</div>${icon}</div>
+          <div class="flex items-center justify-between mb-2"><div class="text-xs tracking-wideish uppercase text-muted-strong">${l}</div>${icon}</div>
           <div class="serif text-xl sm:text-2xl">${v}</div>
         </div>`).join('')}
       </div>
       <div class="grid lg:grid-cols-3 gap-6 mb-6">
         <div class="stat-card p-6 lg:col-span-2">
           <div class="flex items-center justify-between mb-4">
-            <div class="text-sm text-gray-500">Sales — last 14 days</div>
-            <div class="text-xs text-gray-600">${naira(daily.reduce((s,d)=>s+d.t,0))}</div>
+            <div class="text-sm text-muted">Sales — last 14 days</div>
+            <div class="text-xs text-muted-strong">${naira(daily.reduce((s,d)=>s+d.t,0))}</div>
           </div>
-          ${orders.length===0 ? `<div class="text-sm text-gray-600">No orders yet. Once customers check out, sales will appear here.</div>` : `
+          ${orders.length===0 ? `<div class="text-sm text-muted-strong">No orders yet. Once customers check out, sales will appear here.</div>` : `
           <div class="flex items-end gap-2 h-40">
             ${daily.map(d=>`
               <div class="flex-1 flex flex-col items-center justify-end h-full">
                 <div class="w-full bg-gold rounded-t transition-colors duration-300 hover:bg-gold-light" style="height:${Math.max(3,(d.t/maxDay)*100)}%" title="${naira(d.t)}"></div>
-                <div class="text-[9px] text-gray-600 mt-2">${d.label}</div>
+                <div class="text-[9px] text-muted-strong mt-2">${d.label}</div>
               </div>`).join('')}
           </div>`}
         </div>
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Payment Methods</div>
+          <div class="text-sm text-muted mb-4">Payment Methods</div>
           ${payEntries.length? payEntries.map(([m,v])=>`
             <div class="mb-3">
               <div class="flex justify-between text-sm mb-1"><span>${payLabel(m)}</span><span class="font-medium">${naira(v)}</span></div>
-              <div class="h-2 bg-[#f1ebdb] rounded-full overflow-hidden"><div class="h-full bg-gold rounded-full" style="width:${Math.round(v/maxPay*100)}%"></div></div>
-            </div>`).join('') : '<div class="text-sm text-gray-600">No data.</div>'}
+              <div class="h-2 bg-surface-soft rounded-full overflow-hidden"><div class="h-full bg-gold rounded-full" style="width:${Math.round(v/maxPay*100)}%"></div></div>
+            </div>`).join('') : '<div class="text-sm text-muted-strong">No data.</div>'}
         </div>
       </div>
       <div class="grid lg:grid-cols-3 gap-6">
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Top Products</div>
+          <div class="text-sm text-muted mb-4">Top Products</div>
           ${topProducts.length? topProducts.map(([name,v])=>`
             <div class="flex items-center gap-3 py-1.5">
               <div class="w-1.5 h-8 bg-gold rounded-full" style="opacity:${0.35+v.qty/maxQty*0.65}"></div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm truncate">${name}</div>
-                <div class="text-[11px] text-gray-600">${v.qty} sold · ${naira(v.rev)}</div>
+                <div class="text-[11px] text-muted-strong">${v.qty} sold · ${naira(v.rev)}</div>
               </div>
-            </div>`).join('') : '<div class="text-sm text-gray-600">No sales yet.</div>'}
+            </div>`).join('') : '<div class="text-sm text-muted-strong">No sales yet.</div>'}
         </div>
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Low Stock Alerts</div>
+          <div class="text-sm text-muted mb-4">Low Stock Alerts</div>
           ${lowStock.length? lowStock.map(p=>`
             <div class="flex items-center justify-between py-1.5 text-sm">
               <span class="truncate pr-2">${p.name}</span>
               <span class="${p.stock===0?'text-red-500 font-medium':'text-orange-700 font-medium'}">${p.stock===0?'Out of stock':p.stock+' left'}</span>
-            </div>`).join('') : '<div class="text-sm text-gray-600">All stocked up. Good job.</div>'}
+            </div>`).join('') : '<div class="text-sm text-muted-strong">All stocked up. Good job.</div>'}
         </div>
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Recent Orders</div>
+          <div class="text-sm text-muted mb-4">Recent Orders</div>
           ${recent.length? recent.map(o=>`
             <div class="flex items-center justify-between py-1.5 text-sm">
               <span class="truncate pr-2">${o.id}</span>
-              <span class="whitespace-nowrap">${naira(o.total)} <span class="text-[10px] text-gray-600 ml-1">${o.status}</span></span>
-            </div>`).join('') : '<div class="text-sm text-gray-600">No orders yet.</div>'}
+              <span class="whitespace-nowrap">${naira(o.total)} <span class="text-[10px] text-muted-strong ml-1">${o.status}</span></span>
+            </div>`).join('') : '<div class="text-sm text-muted-strong">No orders yet.</div>'}
         </div>
       </div>
       <div class="mt-6 stat-card p-6">
         <div class="flex items-center justify-between mb-3">
-          <div class="text-sm text-gray-500">Transactional Email</div>
-          <span class="text-xs text-gray-600">daily budget</span>
+          <div class="text-sm text-muted">Transactional Email</div>
+          <span class="text-xs text-muted-strong">daily budget</span>
         </div>
-        <div id="email-stats-box" class="text-sm text-gray-600">Loading…</div>
+        <div id="email-stats-box" class="text-sm text-muted-strong">Loading…</div>
       </div>`;
     loadEmailStats().then(es=>{
       const box = document.getElementById('email-stats-box');
@@ -2229,11 +2261,11 @@ async function renderAdmin(){
       }
       const pct = es.budget ? Math.min(100, Math.round(es.sentToday/es.budget*100)) : 0;
       box.innerHTML = `
-        <div class="h-2 bg-[#f1ebdb] rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
+        <div class="h-2 bg-surface-soft rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
         <div class="space-y-1">
           <div class="flex justify-between"><span>Sent today</span><b>${es.sentToday} / ${es.budget}</b></div>
           <div class="flex justify-between"><span>Pending (waiting to send)</span><b>${es.pending}</b></div>
-          <div class="flex justify-between"><span>Failed (won't send)</span><b class="${es.failed?'text-red-500':'text-gray-600'}">${es.failed}</b></div>
+          <div class="flex justify-between"><span>Failed (won't send)</span><b class="${es.failed?'text-red-500':'text-muted-strong'}">${es.failed}</b></div>
         </div>`;
     });
   }
@@ -2256,7 +2288,7 @@ async function renderAdmin(){
             <td data-label="Price">${naira(p.price)}</td>
             <td data-label="Stock">${p.stock>0?p.stock:`<span class="text-red-500">Out of stock</span>`}</td>
             <td data-label="Actions" class="space-x-3">
-              <button onclick="openProductForm('${p.id}')" class="text-forest underline text-xs">Edit</button>
+              <button onclick="openProductForm('${p.id}')" class="text-forest-ink underline text-xs">Edit</button>
               <button onclick="deleteProduct('${p.id}')" class="text-red-500 underline text-xs">Delete</button>
             </td>
           </tr>`).join('')}
@@ -2275,17 +2307,17 @@ async function renderAdmin(){
         ${orders.slice().reverse().map(o=>`
           <tr>
             <td>${o.id}<span class="md:hidden block mt-1.5">${statusBadge(o.status)}</span></td>
-            <td data-label="Customer">${(o.customer||{}).name||'—'}<br><span class="text-xs text-gray-600">${(o.customer||{}).email||''}</span></td>
+            <td data-label="Customer">${(o.customer||{}).name||'—'}<br><span class="text-xs text-muted-strong">${(o.customer||{}).email||''}</span></td>
             <td data-label="Total">${naira(o.total)}</td>
             <td data-label="Status">
-              <select onchange="updateOrderStatus('${o.id}', this.value)" class="!w-auto !py-1 text-xs">
+              <select id="st-sel-${o.id}" onchange="changeOrderStatus('${o.id}', this)" class="!w-auto !py-1 text-xs rounded-md" style="${statusStyle(o.status)}">
                 ${['Awaiting Payment','Verifying Your Payment','Being Handcrafted','On Its Way','Delivered','Cancelled'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
               </select>
             </td>
             <td data-label="Date">${new Date(o.date).toLocaleDateString('en-NG')}</td>
-            <td data-label="Actions"><button onclick="openOrderInvoice('${o.id}')" class="text-forest underline text-xs">Invoice</button></td>
+            <td data-label="Actions"><button onclick="openOrderInvoice('${o.id}')" class="text-forest-ink underline text-xs">Invoice</button></td>
           </tr>`).join('')}
-        ${orders.length===0?'<tr><td colspan="6" class="text-center text-gray-600 py-8">No orders yet.</td></tr>':''}
+        ${orders.length===0?'<tr><td colspan="6" class="text-center text-muted-strong py-8">No orders yet.</td></tr>':''}
         </tbody>
       </table>
       </div>`;
@@ -2309,7 +2341,7 @@ async function renderAdmin(){
         <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Total Spent</th></tr></thead>
         <tbody>
           ${list.map(cu=>`<tr><td>${cu.name}</td><td data-label="Email">${cu.email}</td><td data-label="Phone">${cu.phone||'—'}</td><td data-label="Orders">${cu.orders}</td><td data-label="Total Spent">${naira(cu.spent)}</td></tr>`).join('')}
-          ${list.length===0?'<tr><td colspan="5" class="text-center text-gray-600 py-8">No customers yet.</td></tr>':''}
+          ${list.length===0?'<tr><td colspan="5" class="text-center text-muted-strong py-8">No customers yet.</td></tr>':''}
         </tbody>
       </table>
       </div>`;
@@ -2324,13 +2356,13 @@ async function renderAdmin(){
       <h2 class="serif text-2xl mb-6">Newsletter</h2>
       <div class="stat-card p-6 mb-6">
         <div class="flex items-center justify-between mb-3">
-          <div class="text-sm text-gray-500">Waitlist progress</div>
+          <div class="text-sm text-muted">Waitlist progress</div>
           <b>${subs.length} / ${target}</b>
         </div>
-        <div class="h-2 bg-[#f1ebdb] rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
+        <div class="h-2 bg-surface-soft rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
         ${unlocked
-          ? `<p class="text-sm text-forest">The waitlist is full — newsletter sending is unlocked.</p>`
-          : `<p class="text-sm text-gray-600">The newsletter stays locked until the waitlist reaches <b>${target}</b> subscribers. ${subs.length===0?'Share the footer signup form to start collecting emails.':`Keep collecting — <b>${target-subs.length}</b> more to go.`}</p>`}
+          ? `<p class="text-sm text-forest-ink">The waitlist is full — newsletter sending is unlocked.</p>`
+          : `<p class="text-sm text-muted-strong">The newsletter stays locked until the waitlist reaches <b>${target}</b> subscribers. ${subs.length===0?'Share the footer signup form to start collecting emails.':`Keep collecting — <b>${target-subs.length}</b> more to go.`}</p>`}
       </div>
       <div class="stat-card p-6">
         <label>Subject</label>
@@ -2341,7 +2373,7 @@ async function renderAdmin(){
         <div id="nl-status" class="text-sm mt-3"></div>
       </div>
       <h3 class="serif text-xl mt-8 mb-3">Subscribers (${subs.length})</h3>
-      <div class="text-sm text-gray-600 space-y-1">${subs.map(s=>`<div>${s}</div>`).join('') || '<div class="text-gray-600">None yet.</div>'}</div>`;
+      <div class="text-sm text-muted-strong space-y-1">${subs.map(s=>`<div>${s}</div>`).join('') || '<div class="text-muted-strong">None yet.</div>'}</div>`;
   }
 
   else if(adminTab==='mycustomers'){
@@ -2378,14 +2410,14 @@ async function renderAdmin(){
       registered = ls.get('zorie_users', []).map(u=>({ full_name:u.full_name, email:u.email, phone:u.phone, created_at:u.created_at }));
     }
     c.innerHTML = `
-      <h2 class="serif text-2xl mb-6">My Customers <span class="text-sm font-normal text-gray-500">(${registered.length} registered)</span></h2>
+      <h2 class="serif text-2xl mb-6">My Customers <span class="text-sm font-normal text-muted">(${registered.length} registered)</span></h2>
       ${warn ? `<div class="border border-red-200 bg-red-50 text-red-700 text-sm rounded-md p-4 mb-6">${warn}</div>` : ''}
       <div class="overflow-x-auto">
       <table class="admin-table w-full min-w-[420px] responsive">
         <thead><tr><th>Full Name</th><th>Email</th><th>Phone</th></tr></thead>
         <tbody>
           ${registered.map(r=>`<tr><td>${r.full_name||'—'}</td><td data-label="Email">${r.email||'—'}</td><td data-label="Phone">${r.phone||'—'}</td></tr>`).join('')}
-          ${registered.length===0 && !warn ? '<tr><td colspan="3" class="text-center text-gray-600 py-8">No registered customers yet.</td></tr>':''}
+          ${registered.length===0 && !warn ? '<tr><td colspan="3" class="text-center text-muted-strong py-8">No registered customers yet.</td></tr>':''}
         </tbody>
       </table>
       </div>`;
@@ -2407,10 +2439,10 @@ async function renderAdmin(){
             <td data-label="Discount">${d.pct}%</td>
             <td data-label="Status">
               <button type="button" onclick="toggleDiscount(${i})" class="flex flex-col items-start gap-1.5 cursor-pointer bg-transparent border-0 p-0" aria-label="Toggle ${d.code}">
-                <span class="relative inline-block w-9 h-5 rounded-full transition ${d.active?'bg-forest':'bg-gray-300'}">
-                  <span class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${d.active?'translate-x-4':'translate-x-0.5'}"></span>
+                <span class="relative inline-block w-9 h-5 rounded-full transition ${d.active?'bg-forest':'bg-surface-soft'}">
+                  <span class="absolute top-0.5 w-4 h-4 rounded-full bg-surface shadow transition-transform ${d.active?'translate-x-4':'translate-x-0.5'}"></span>
                 </span>
-                <span class="text-xs whitespace-nowrap ${d.active?'text-forest font-medium':'text-gray-500'}">${d.active?'Active':'Inactive'}</span>
+                <span class="text-xs whitespace-nowrap ${d.active?'text-forest-ink font-medium':'text-muted'}">${d.active?'Active':'Inactive'}</span>
               </button>
             </td>
             <td data-label=""><button onclick="removeDiscount(${i})" class="text-red-500 underline text-xs">Remove</button></td>
@@ -2456,7 +2488,7 @@ async function renderAdmin(){
           ['Items Sold', items, '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912F" stroke-width="1.8"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/></svg>'],
           ['Avg Order', naira(avg), '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8912F" stroke-width="1.8"><path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>']
         ].map(([l,v,icon])=>`<div class="stat-card p-4 sm:p-5">
-          <div class="flex items-center justify-between mb-2"><div class="text-xs tracking-wideish uppercase text-gray-600">${l}</div>${icon}</div>
+          <div class="flex items-center justify-between mb-2"><div class="text-xs tracking-wideish uppercase text-muted-strong">${l}</div>${icon}</div>
           <div class="serif text-xl sm:text-2xl">${v}</div>
         </div>`).join('')}
       </div>
@@ -2466,12 +2498,12 @@ async function renderAdmin(){
       </div>
       <div class="grid md:grid-cols-2 gap-6 mb-8">
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Payment Methods</div>
-          ${payRows.length? payRows.map(([m,v])=>`<div class="flex items-center justify-between py-1 text-sm"><span>${payLabel(m)}</span><span class="font-medium">${naira(v)}</span></div>`).join('') : '<div class="text-sm text-gray-600">No data.</div>'}
+          <div class="text-sm text-muted mb-4">Payment Methods</div>
+          ${payRows.length? payRows.map(([m,v])=>`<div class="flex items-center justify-between py-1 text-sm"><span>${payLabel(m)}</span><span class="font-medium">${naira(v)}</span></div>`).join('') : '<div class="text-sm text-muted-strong">No data.</div>'}
         </div>
         <div class="stat-card p-6">
-          <div class="text-sm text-gray-500 mb-4">Sales by Category</div>
-          ${catRows.length? catRows.map(([cat,v])=>`<div class="flex items-center justify-between py-1 text-sm"><span class="truncate pr-2">${cat}</span><span class="font-medium whitespace-nowrap">${naira(v.rev)} <span class="text-gray-600">(${v.qty})</span></span></div>`).join('') : '<div class="text-sm text-gray-600">No data.</div>'}
+          <div class="text-sm text-muted mb-4">Sales by Category</div>
+          ${catRows.length? catRows.map(([cat,v])=>`<div class="flex items-center justify-between py-1 text-sm"><span class="truncate pr-2">${cat}</span><span class="font-medium whitespace-nowrap">${naira(v.rev)} <span class="text-muted-strong">(${v.qty})</span></span></div>`).join('') : '<div class="text-sm text-muted-strong">No data.</div>'}
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -2487,7 +2519,7 @@ async function renderAdmin(){
             <td data-label="Total">${naira(o.total)}</td>
             <td data-label="Status">${statusBadge(o.status)}</td>
           </tr>`).join('')}
-        ${filtered.length===0?'<tr><td colspan="6" class="text-center text-gray-600 py-8">No orders in this period.</td></tr>':''}
+        ${filtered.length===0?'<tr><td colspan="6" class="text-center text-muted-strong py-8">No orders in this period.</td></tr>':''}
         </tbody>
       </table>
       </div>`;
@@ -2498,7 +2530,7 @@ function openProductForm(id){
   const p = id ? findProduct(id) : null;
   const wrap = document.getElementById('product-form-wrap');
   wrap.innerHTML = `
-    <form onsubmit="return saveProduct(event, '${id||''}')" class="bg-white border border-[#e4dcc7] rounded-xl p-5 sm:p-6 grid sm:grid-cols-2 gap-4 shadow-sm" autocomplete="off">
+    <form onsubmit="return saveProduct(event, '${id||''}')" class="bg-surface border border-edge rounded-xl p-5 sm:p-6 grid sm:grid-cols-2 gap-4 shadow-sm" autocomplete="off">
       <div><label>Name</label><input type="text" id="pf-name" value="${p?p.name:''}" required></div>
       <div><label>Category</label>
         <select id="pf-cat">${CATEGORIES.map(c=>`<option ${p&&p.cat===c?'selected':''}>${c}</option>`).join('')}</select>
@@ -2508,7 +2540,7 @@ function openProductForm(id){
       <div class="sm:col-span-2">
         <label>Product Image</label>
         <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-          <div id="pf-img-preview" class="w-20 h-24 rounded-sm border border-[#e4dcc7] overflow-hidden flex-shrink-0 ${p&&p.img?'':'hidden'}">
+          <div id="pf-img-preview" class="w-20 h-24 rounded-sm border border-edge overflow-hidden flex-shrink-0 ${p&&p.img?'':'hidden'}">
             ${p&&p.img?`<img src="${p.img}" class="w-full h-full object-cover">`:''}
           </div>
           <div class="flex-1">
@@ -2518,7 +2550,7 @@ function openProductForm(id){
             </label>
             <input type="file" id="pf-img-file" accept="image/*" onchange="onProductImagePicked(event)" class="sr-only">
             <input type="hidden" id="pf-img" value="${p?p.img:''}">
-            <div id="pf-img-note" class="text-[11px] text-gray-600 mt-1.5">Click “Upload Image” to choose a JPG or PNG (max 5MB) — it will be resized automatically. In live mode images are stored in Supabase Storage; in demo mode they are embedded in this browser.</div>
+            <div id="pf-img-note" class="text-[11px] text-muted-strong mt-1.5">Click “Upload Image” to choose a JPG or PNG (max 5MB) — it will be resized automatically. In live mode images are stored in Supabase Storage; in demo mode they are embedded in this browser.</div>
           </div>
         </div>
       </div>
@@ -2715,7 +2747,7 @@ function renderPolicies(page){
   </section>
   <section class="max-w-3xl mx-auto px-6 py-14">
     <nav class="flex flex-wrap gap-2 mb-10">
-      ${Object.entries(POLICIES).map(([k,v])=>`<a href="#policies/${k}" class="text-xs tracking-wideish uppercase px-4 py-2 border ${page===k?'border-gold text-gold':'border-[#e4dcc7] text-gray-500 hover:border-gold'}">${v.title}</a>`).join('')}
+      ${Object.entries(POLICIES).map(([k,v])=>`<a href="#policies/${k}" class="text-xs tracking-wideish uppercase px-4 py-2 border ${page===k?'border-gold text-gold':'border-edge text-muted hover:border-gold'}">${v.title}</a>`).join('')}
     </nav>
     <div class="policy-body">${p.body}</div>
   </section>`;
@@ -2740,13 +2772,13 @@ function renderFaq(){
   <section class="max-w-3xl mx-auto px-6 py-14">
     <div class="space-y-3">
       ${faqs.map(([q,a])=>`
-        <details class="border border-[#e4dcc7] px-5 py-4">
+        <details class="border border-edge px-5 py-4">
           <summary class="serif text-lg cursor-pointer">${q}</summary>
-          <p class="text-sm text-gray-600 leading-relaxed pt-3">${a}</p>
+          <p class="text-sm text-muted-strong leading-relaxed pt-3">${a}</p>
         </details>`).join('')}
     </div>
     <div class="text-center mt-12">
-      <p class="text-sm text-gray-500 mb-4">Still have questions?</p>
+      <p class="text-sm text-muted mb-4">Still have questions?</p>
       <a href="#contact" class="btn btn-forest">Contact Us</a>
     </div>
   </section>`;
@@ -2772,18 +2804,18 @@ function renderContact(){
     </div>
     <div class="space-y-6">
       <h3 class="serif text-2xl">Get in touch</h3>
-      <div class="text-sm text-gray-600 space-y-3">
-        <div>📧 <a href="mailto:${s.email}" class="text-forest underline">${s.email}</a></div>
-        <div>📞 <a href="tel:${s.phone.replace(/\s/g,'')}" class="text-forest underline">${s.phone}</a></div>
-        <div>💬 <a href="https://wa.me/${s.whatsapp}" target="_blank" class="text-forest underline">WhatsApp us</a> — fastest response</div>
+      <div class="text-sm text-muted-strong space-y-3">
+        <div>📧 <a href="mailto:${s.email}" class="text-forest-ink underline">${s.email}</a></div>
+        <div>📞 <a href="tel:${s.phone.replace(/\s/g,'')}" class="text-forest-ink underline">${s.phone}</a></div>
+        <div>💬 <a href="https://wa.me/${s.whatsapp}" target="_blank" class="text-forest-ink underline">WhatsApp us</a> — fastest response</div>
         <div>📍 Lagos, Nigeria</div>
       </div>
-      <div class="border border-[#e4dcc7] p-5 text-sm text-gray-600">
-        <div class="font-medium text-forest-dark mb-2">Opening hours</div>
+      <div class="border border-edge p-5 text-sm text-muted-strong">
+        <div class="font-medium text-forest-ink mb-2">Opening hours</div>
         Monday – Saturday · 9am – 7pm (WAT)
       </div>
-      <div class="border border-[#e4dcc7] p-5 text-sm text-gray-600">
-        <div class="font-medium text-forest-dark mb-2">Order support</div>
+      <div class="border border-edge p-5 text-sm text-muted-strong">
+        <div class="font-medium text-forest-ink mb-2">Order support</div>
         For order updates or tracking help, include your order number in your message.
       </div>
     </div>
@@ -2798,7 +2830,7 @@ function submitContact(e){
     message: document.getElementById('ct-message').value.trim()
   };
   const el = document.getElementById('contact-msg');
-  const done = ()=>{ el.textContent = 'Thank you! We will get back to you soon.'; el.className='text-sm mt-3 text-forest'; document.getElementById('ct-name').value=''; document.getElementById('ct-email').value=''; document.getElementById('ct-message').value=''; };
+  const done = ()=>{ el.textContent = 'Thank you! We will get back to you soon.'; el.className='text-sm mt-3 text-forest-ink'; document.getElementById('ct-name').value=''; document.getElementById('ct-email').value=''; document.getElementById('ct-message').value=''; };
   const fail = ()=>{ el.textContent = 'Something went wrong — please email us directly.'; el.className='text-sm mt-3 text-red-500'; };
   if(sb){
     sb.functions.invoke('contact', { body: data }).then(res=> res.error ? fail() : done()).catch(()=>{
@@ -2838,6 +2870,7 @@ function applyConfig(){
    ========================================================================= */
 document.getElementById('footer-year').textContent = new Date().getFullYear();
 applyConfig();
+applyThemeColor();
 updateBadges();
 initAuth();
 router();
