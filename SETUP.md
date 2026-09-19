@@ -34,6 +34,14 @@ You can accept payments — customers pay by **OPay bank transfer** at checkout:
    > `supabase/migrations/20260919000000_customer_accounts.sql` (SQL Editor) so
    > orders can be linked to customers (`orders.user_id`) and only the admin can
    > write to the catalog.
+   > **Newsletter send log** — `supabase/migrations/20260919120000_newsletter_sends.sql`
+   > adds the `newsletter_sends` table (each broadcast is recorded). If you ran
+   > `schema.sql` after that file was added it is already included.
+   > **Signup users table** — `supabase/migrations/20260919150000_signup_users.sql`
+   > adds the `signup_users` table: every account created on the site (or added
+   > manually in Dashboard → **Authentication → Users**) is copied into it
+   > automatically by a trigger on `auth.users`, and existing users are backfilled.
+   > You can then view/manage signups directly in Dashboard → **Database → signup_users**.
 3. Create your owner login:
    - Dashboard → **Authentication → Users → Add user** → enter your email + a strong password.
    - (Or uncomment the last block in `supabase/schema.sql` and run it once.)
@@ -138,6 +146,16 @@ Dashboard shows emails sent today / pending / failed and the remaining budget.
   set `EMAIL_FROM` to `Zorie Collectibles <orders@yourdomain.com>`, and upgrade to
   **Resend Pro** ($20/mo, 50,000 emails, no daily cap) — or **Amazon SES** for very
   large volume. Emails then send almost immediately instead of on the 15-min timer.
+
+### Newsletter (waitlist of 50, then send)
+
+The footer signup is a **waitlist**: emails are collected into the `subscribers`
+table but the newsletter stays locked until the list reaches **50 subscribers**.
+Once it does, the admin **Newsletter** tab unlocks — write a subject + message and
+the broadcast is queued to every subscriber (drained slowly by `send-emails` the
+same way as order emails). The admin tab shows live waitlist progress and the
+subscriber list. Re-run `supabase functions deploy checkout --no-verify-jwt` to
+pick up the `newsletter` method.
 
 ### Upload the product images
 

@@ -256,7 +256,8 @@ async function trackOrder(orderId, email) {
   return json({ ok: true, order: data });
 }
 
-// Admin-only: list registered customers (full name, email, phone) from Auth.
+// Admin-only: list registered customers from the signup_users table.
+// (The table is kept in sync automatically by a trigger on auth.users.)
 async function listCustomers(req) {
   const userId = await callerUserId(req);
   if (!userId) return json({ error: "unauthorized" }, 401);
@@ -267,16 +268,18 @@ async function listCustomers(req) {
   if (meErr || !me || !isAdmin) {
     return json({ error: "forbidden" }, 403);
   }
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const { data, error } = await supabase
+    .from("signup_users")
+    .select("email, full_name, phone, created_at")
+    .order("created_at", { ascending: false });
   if (error) return json({ error: error.message }, 500);
-  const rows = (data?.users || [])
-    .filter((u) => u.email && (u.app_metadata?.role) !== "admin" && (u.user_metadata?.role) !== "admin")
-    .map((u) => ({
-      id: u.id,
-      email: u.email,
-      full_name: (u.user_metadata || {}).full_name || "",
-      phone: (u.user_metadata || {}).phone || "",
-      created_at: u.created_at,
+  const rows = (data || [])
+    .filter((r) => r.email !== me.user.email)
+    .map((r) => ({
+      email: r.email,
+      full_name: r.full_name || "",
+      phone: r.phone || "",
+      created_at: r.created_at,
     }));
   return json({ ok: true, customers: rows });
 }
@@ -310,6 +313,49 @@ async function emailStats(req) {
   });
 }
 
+// Newsletter waitlist send. The newsletter stays locked until the waitlist
+// reaches NEWSLETTER_TARGET (50) subscribers — then a broadcast to every
+// subscriber is queued (drained slowly by `send-emails` like the rest).
+const NEWSLETTER_TARGET = 50;
+
+async function sendNewsletter(req, body) {
+  const userId = await callerUserId(req);
+  if (!userId) return json({ error: "unauthorized" }, 401);
+  const { data: me, error: meErr } = await supabase.auth.admin.getUserById(userId);
+  const appMeta = me?.user?.app_metadata || {};
+  const userMeta = me?.user?.user_metadata || {};
+  const isAdmin = appMeta.role === "admin" || userMeta.role === "admin";
+  if (meErr || !me || !isAdmin) return json({ error: "forbidden" }, 403);
+
+  const subject = String(body.subject || "").trim();
+  const content = String(body.body || "").trim();
+  if (!subject || !content) return json({ ok: false, error: "subject and message are required" }, 400);
+
+  const { count } = await supabase
+    .from("subscribers")
+    .select("email", { count: "exact", head: true });
+  const total = count || 0;
+  if (total < NEWSLETTER_TARGET) {
+    return json({ ok: false, error: "waitlist", count: total, target: NEWSLETTER_TARGET });
+  }
+
+  const { data: subs } = await supabase
+    .from("subscribers")
+    .select("email")
+    .order("created_at", { ascending: true });
+  const emails = (subs || []).map((s) => s.email).filter(Boolean);
+  if (emails.length === 0) return json({ ok: false, error: "no subscribers", count: 0, target: NEWSLETTER_TARGET });
+
+  const { error } = await supabase.from("email_queue").insert(
+    emails.map((email) => ({ recipient: email, subject, body: content }))
+  );
+  if (error) return json({ ok: false, error: error.message }, 500);
+
+  await supabase.from("newsletter_sends").insert({ recipient_count: emails.length, subject });
+
+  return json({ ok: true, count: emails.length, target: NEWSLETTER_TARGET });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -325,6 +371,9 @@ Deno.serve(async (req) => {
   }
   if (body && body.method === "email-stats") {
     return await emailStats(req);
+  }
+  if (body && body.method === "newsletter") {
+    return await sendNewsletter(req, body);
   }
   if (body && body.method === "opay") {
     const order = body.order || {};

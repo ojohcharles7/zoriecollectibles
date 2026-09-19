@@ -50,6 +50,53 @@ create table if not exists public.subscribers (
   created_at timestamptz default now()
 );
 
+-- SIGNUP USERS — manageable copy of every account created on the site.
+-- A trigger on auth.users keeps it in sync; only the admin manages it.
+create table if not exists public.signup_users (
+  id         uuid primary key default gen_random_uuid(),
+  email      text unique not null,
+  full_name  text not null default '',
+  phone      text not null default '',
+  created_at timestamptz default now()
+);
+
+-- Backfill existing Auth users.
+insert into public.signup_users (email, full_name, phone, created_at)
+select
+  u.email,
+  coalesce(u.raw_user_meta_data ->> 'full_name', ''),
+  coalesce(u.raw_user_meta_data ->> 'phone', ''),
+  u.created_at
+from auth.users u
+where u.email is not null
+on conflict (email) do nothing;
+
+-- Auto-add every new Auth user to the table.
+create or replace function public.sync_signup_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if new.email is not null then
+    insert into public.signup_users (email, full_name, phone, created_at)
+    values (
+      new.email,
+      coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+      coalesce(new.raw_user_meta_data ->> 'phone', ''),
+      coalesce(new.created_at, now())
+    )
+    on conflict (email) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.sync_signup_user();
+
 -- CONTACT MESSAGES
 create table if not exists public.contact_messages (
   id         uuid primary key default gen_random_uuid(),
@@ -57,6 +104,14 @@ create table if not exists public.contact_messages (
   email      text,
   message    text,
   created_at timestamptz default now()
+);
+
+-- NEWSLETTER SEND LOG (each broadcast to the waitlist is recorded here)
+create table if not exists public.newsletter_sends (
+  id               uuid primary key default gen_random_uuid(),
+  recipient_count  integer not null,
+  subject          text not null,
+  created_at       timestamptz default now()
 );
 
 -- EMAIL QUEUE (transactional emails wait here; drained by send-emails function)
@@ -103,6 +158,8 @@ alter table public.discounts enable row level security;
 alter table public.subscribers enable row level security;
 alter table public.contact_messages enable row level security;
 alter table public.email_queue enable row level security;
+alter table public.newsletter_sends enable row level security;
+alter table public.signup_users enable row level security;
 
 -- products: anyone can read; only the owner (admin claim) can write
 drop policy if exists "products public read"   on public.products;
@@ -143,11 +200,25 @@ create policy "subscribers public insert" on public.subscribers for insert with 
 create policy "subscribers owner select" on public.subscribers for select
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+-- signup users: admin-managed (the auth trigger bypasses RLS on insert)
+drop policy if exists "signup users owner all" on public.signup_users;
+create policy "signup users owner all" on public.signup_users for all
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
 -- contact messages: anyone can insert; only the owner reads
 drop policy if exists "contact public insert" on public.contact_messages;
 drop policy if exists "contact owner select" on public.contact_messages;
 create policy "contact public insert" on public.contact_messages for insert with check (true);
 create policy "contact owner select" on public.contact_messages for select
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+
+-- newsletter sends: only the owner reads / writes (via the checkout function)
+drop policy if exists "newsletter sends owner insert" on public.newsletter_sends;
+drop policy if exists "newsletter sends owner select" on public.newsletter_sends;
+create policy "newsletter sends owner insert" on public.newsletter_sends for insert
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "newsletter sends owner select" on public.newsletter_sends for select
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 -- ---------------------------------------------------------------------------

@@ -566,18 +566,59 @@ function subscribeNewsletter(e){
   e.preventDefault();
   const input = document.getElementById('newsletter-email');
   const email = input.value.trim();
+  const subs = DB.subscribers;
+  if(!subs.includes(email)){ subs.push(email); DB.subscribers = subs; }
+  const count = DB.subscribers.length;
+  const msg = count < NEWSLETTER_TARGET
+    ? `You're on the waitlist (${count}/${NEWSLETTER_TARGET}). We'll email you when it's live!`
+    : 'Thank you for subscribing!';
   if(sb){
-    sb.from('subscribers').insert({email}).then(({error})=>{
-      if(!error || error.code==='23505'){ toast('Thank you for subscribing!'); input.value=''; }
+    sb.from('subscribers').upsert({email}).then(({error})=>{
+      if(!error || error.code==='23505'){ toast(msg); input.value=''; }
       else { toast('Could not subscribe. Please try again.'); }
     });
   } else {
-    const subs = DB.subscribers;
-    if(!subs.includes(email)){ subs.push(email); DB.subscribers = subs; }
-    toast('Thank you for subscribing!');
+    toast(msg);
     input.value='';
   }
   return false;
+}
+
+const NEWSLETTER_TARGET = 50;
+function sendNewsletterAdmin(){
+  const subject = (document.getElementById('nl-subject').value||'').trim();
+  const body = (document.getElementById('nl-body').value||'').trim();
+  const status = document.getElementById('nl-status');
+  const btn = document.getElementById('nl-send-btn');
+  if(!subject || !body){ status.textContent = 'Enter both a subject and a message.'; status.className='text-sm mt-3 text-red-500'; return; }
+  if(btn){ btn.disabled = true; btn.textContent = 'Queuing…'; }
+  const done = (msg, ok=true)=>{
+    status.textContent = msg;
+    status.className = 'text-sm mt-3 ' + (ok?'text-forest':'text-red-500');
+    if(btn){ btn.disabled = false; btn.textContent = 'Send newsletter again'; }
+  };
+  if(sb){
+    sb.functions.invoke('checkout', { body:{ method:'newsletter', subject, body } })
+      .then(res=>{
+        const d = res && res.data;
+        if(d && d.ok){
+          done(`Newsletter queued for ${d.count} subscribers. It will send in batches within the daily email budget.`);
+          document.getElementById('nl-subject').value='';
+          document.getElementById('nl-body').value='';
+        } else if(d && d.error==='waitlist'){
+          done(`Newsletter still locked — the waitlist needs ${d.target} subscribers and currently has ${d.count}. Keep collecting.`, false);
+        } else {
+          done('Could not send. Please try again.', false);
+        }
+      })
+      .catch(()=>done('Could not reach the server. Please try again.', false));
+  } else {
+    if(DB.subscribers.length < NEWSLETTER_TARGET){
+      done(`Demo mode — the waitlist needs ${NEWSLETTER_TARGET} subscribers and currently has ${DB.subscribers.length}. Keep collecting.`, false);
+      return;
+    }
+    setTimeout(()=>done('Demo mode — the newsletter would be queued for '+DB.subscribers.length+' subscribers.'), 400);
+  }
 }
 
 /* =========================================================================
@@ -1469,7 +1510,8 @@ const ADMIN_TABS = [
   ['orders','Orders','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/></svg>'],
   ['customers','Customers','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>'],
   ['mycustomers','My Customers','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7 18c0-2.5 2-4 5-4s5 1.5 5 4"/></svg>'],
-  ['discounts','Discounts','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>']
+  ['discounts','Discounts','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>'],
+  ['newsletter','Newsletter','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></svg>']
 ];
 
 /* ---------- reports helpers ---------- */
@@ -1897,11 +1939,36 @@ async function renderAdmin(){
           ${list.length===0?'<tr><td colspan="5" class="text-center text-gray-600 py-8">No customers yet.</td></tr>':''}
         </tbody>
       </table>
-      </div>
-      <div class="mt-10">
-        <h3 class="serif text-xl mb-3">Newsletter Subscribers (${DB.subscribers.length})</h3>
-        <div class="text-sm text-gray-600 space-y-1">${DB.subscribers.map(s=>`<div>${s}</div>`).join('') || '<div class="text-gray-600">None yet.</div>'}</div>
       </div>`;
+  }
+
+  else if(adminTab==='newsletter'){
+    const subs = DB.subscribers || [];
+    const target = 50;
+    const pct = Math.min(100, Math.round(subs.length/target*100));
+    const unlocked = subs.length >= target;
+    c.innerHTML = `
+      <h2 class="serif text-2xl mb-6">Newsletter</h2>
+      <div class="stat-card p-6 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm text-gray-500">Waitlist progress</div>
+          <b>${subs.length} / ${target}</b>
+        </div>
+        <div class="h-2 bg-[#f1ebdb] rounded-full overflow-hidden mb-3"><div class="h-full bg-gold rounded-full" style="width:${pct}%"></div></div>
+        ${unlocked
+          ? `<p class="text-sm text-forest">The waitlist is full — newsletter sending is unlocked.</p>`
+          : `<p class="text-sm text-gray-600">The newsletter stays locked until the waitlist reaches <b>${target}</b> subscribers. ${subs.length===0?'Share the footer signup form to start collecting emails.':`Keep collecting — <b>${target-subs.length}</b> more to go.`}</p>`}
+      </div>
+      <div class="stat-card p-6">
+        <label>Subject</label>
+        <input type="text" id="nl-subject" placeholder="New arrivals at Zorie Collectibles" class="w-full mb-4">
+        <label>Message</label>
+        <textarea id="nl-body" rows="6" placeholder="Hi there,&#10;&#10;..." class="w-full mb-4"></textarea>
+        <button id="nl-send-btn" onclick="sendNewsletterAdmin()" class="btn btn-forest ${unlocked?'':'opacity-40'}" ${unlocked?'':'disabled'}>Send newsletter to ${subs.length} subscribers</button>
+        <div id="nl-status" class="text-sm mt-3"></div>
+      </div>
+      <h3 class="serif text-xl mt-8 mb-3">Subscribers (${subs.length})</h3>
+      <div class="text-sm text-gray-600 space-y-1">${subs.map(s=>`<div>${s}</div>`).join('') || '<div class="text-gray-600">None yet.</div>'}</div>`;
   }
 
   else if(adminTab==='mycustomers'){
