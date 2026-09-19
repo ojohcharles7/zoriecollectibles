@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zorie Collectibles — Jewellery That Tells Your Story</title>
-<meta name="description" content="Zorie Collectibles — handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely online with Paystack.">
+<meta name="description" content="Zorie Collectibles — handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely online, pay by transfer.">
 <meta name="theme-color" content="#173F30">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Zorie Collectibles">
 <meta property="og:title" content="Zorie Collectibles — Jewellery That Tells Your Story">
-<meta property="og:description" content="Handcrafted bead jewellery, gemstone bracelets and customized name pieces from Nigeria. Pay securely with Paystack.">
+<meta property="og:description" content="Handcrafted bead jewellery, gemstone bracelets and customized name pieces from Nigeria. Pay securely by transfer.">
 <meta property="og:url" content="https://zorie.vercel.app">
 <meta property="og:image" content="https://zorie.vercel.app/favicon.svg">
 <meta name="twitter:card" content="summary">
@@ -72,6 +72,9 @@
     </nav>
 
     <div class="flex items-center gap-4 sm:gap-5">
+      <a href="#account" id="account-link" class="hover:text-gold transition" aria-label="My Account" title="My Account">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      </a>
       <button onclick="openSearch()" aria-label="Search" class="hover:text-gold transition">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
@@ -92,6 +95,7 @@
     <a href="#shop" onclick="toggleMobileMenu()">Shop</a>
     <a href="#about" onclick="toggleMobileMenu()">About</a>
     <a href="#custom" onclick="toggleMobileMenu()">Customize</a>
+    <a href="#account" onclick="toggleMobileMenu()">My Account</a>
     <a href="#contact" onclick="toggleMobileMenu()">Contact</a>
   </div>
 
@@ -144,6 +148,7 @@
       <ul class="space-y-2 text-sm text-cream/75">
         <li><a href="#about" class="hover:text-gold-light">About Us</a></li>
         <li><a href="#track" class="hover:text-gold-light">Track Order</a></li>
+        <li><a href="#account" class="hover:text-gold-light">My Account</a></li>
         <li><a href="#policies/shipping" class="hover:text-gold-light">Shipping &amp; Returns</a></li>
         <li><a href="#faq" class="hover:text-gold-light">FAQ</a></li>
         <li><a href="#contact" class="hover:text-gold-light">Contact Us</a></li>
@@ -169,7 +174,7 @@
     </div>
   </div>
   <div class="border-t border-cream/10 py-5 text-center text-[11px] tracking-wide text-cream/50">
-    © <span id="footer-year"></span> Zorie Collectibles. All rights reserved. · Payments secured by Paystack
+    © <span id="footer-year"></span> Zorie Collectibles. All rights reserved. · Payments secured by OPay
   </div>
 </footer>
 
@@ -294,6 +299,19 @@
       </label>
       <button class="btn btn-forest w-full">Create Code</button>
     </form>
+  </div>
+</div>
+
+<!-- ============ WELCOME / ACCOUNT CREATED MODAL ============ -->
+<div id="welcome-modal" class="modal-wrap">
+  <div class="modal-card relative p-7 sm:p-8 max-w-sm text-center">
+    <button onclick="closeModal('welcome-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-[#e4dcc7] text-gray-600 hover:text-forest hover:border-gold flex items-center justify-center leading-none transition" aria-label="Close">&times;</button>
+    <div class="mx-auto mb-4 w-14 h-14 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+    </div>
+    <h3 class="serif text-2xl mb-1">Congratulations!</h3>
+    <p class="text-sm text-gray-500 mb-6">Your account has been created successfully. Welcome to Zorie Collectibles!</p>
+    <button onclick="closeWelcome()" class="btn btn-gold w-full">Start Shopping</button>
   </div>
 </div>
 

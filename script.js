@@ -94,6 +94,7 @@ function normalizeOrder(o){
     subtotal: Number(o.subtotal)||0, discount: Number(o.discount)||0,
     delivery: Number(o.delivery)||0, total: Number(o.total)||0,
     paymethod: o.paymethod || o.payMethod || '', payref: o.payRef || o.payref || '',
+    user_id: o.user_id || null,
     status: o.status || 'Processing' };
 }
 
@@ -153,6 +154,297 @@ async function refreshAdminData(){
   }catch(e){ adminDataLoaded = false; console.warn('admin data load failed — using local data.', e); }
 }
 
+/* =========================================================================
+   CUSTOMER ACCOUNTS (sign up / sign in / my orders)
+   Live mode uses Supabase Auth (passwords are bcrypt-hashed by Supabase).
+   Demo mode keeps accounts in localStorage, hashed with SHA-256.
+   ========================================================================= */
+const AUTH = { user: null, session: null };
+
+function profileName(user){
+  if(!user) return '';
+  const m = user.user_metadata || {};
+  return user.full_name || m.full_name || (user.email||'').split('@')[0] || 'there';
+}
+function profileEmail(user){
+  if(!user) return '';
+  return (user.user_metadata||{}).email || user.email || '';
+}
+function currentUser(){ return AUTH.user; }
+
+/* After a successful sign in / sign up: open the home page so the customer
+   can start ordering right away. (Cart items are kept in the bag.) */
+function routeAfterAuth(){
+  location.hash = '#home';
+}
+
+function closeWelcome(){
+  closeModal('welcome-modal');
+  location.hash = '#home';
+}
+
+function updateAuthUI(){
+  const me = currentUser();
+  const links = document.querySelectorAll('[data-account-label]');
+  links.forEach(el=>{
+    el.textContent = me ? 'My Account' : 'Sign In / Sign Up';
+  });
+  const link = document.getElementById('account-link');
+  if(link) link.title = me ? 'My Account' : 'Sign In / Sign Up';
+}
+
+async function initAuth(){
+  if(sb){
+    const { data } = await sb.auth.getSession();
+    AUTH.session = data.session; AUTH.user = data.session?.user || null;
+    sb.auth.onAuthStateChange((ev, session)=>{
+      AUTH.session = session; AUTH.user = session?.user || null;
+      updateAuthUI();
+    });
+  } else {
+    AUTH.user = ls.get('zorie_session', null);
+  }
+  updateAuthUI();
+}
+
+/* demo-mode password hashing (fallback if Web Crypto unavailable) */
+async function hashPassword(pw){
+  try{
+    if(crypto && crypto.subtle){
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+      return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(e){ /* fall through */ }
+  let h = 5381;
+  for(let i=0;i<pw.length;i++){ h = ((h<<5)+h+pw.charCodeAt(i))|0; }
+  return 'f' + Math.abs(h).toString(16);
+}
+
+function validatePassword(pw){
+  if(!/^[!@#$%^&*]/.test(pw)) return 'Password must start with a special character (!, @, #, $, %, ^, &, *).';
+  if(pw.length < 6) return 'Password must be at least 6 characters.';
+  return '';
+}
+
+async function doSignUp(e){
+  e.preventDefault();
+  const err = document.getElementById('auth-err');
+  const ok = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-forest'; } };
+  const fail = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-red-500'; } };
+  const full_name = document.getElementById('su-name').value.trim();
+  const email = (document.getElementById('su-email').value||'').trim().toLowerCase();
+  const phone = document.getElementById('su-phone').value.trim();
+  const pw = document.getElementById('su-pw').value;
+  if(!full_name){ fail('Please enter your full name.'); return false; }
+  if(!phone){ fail('Please enter your phone number.'); return false; }
+  const pwErr = validatePassword(pw);
+  if(pwErr){ fail(pwErr); return false; }
+  if(sb){
+    const { data, error } = await sb.auth.signUp({
+      email, password: pw,
+      options: { data: { full_name, phone } }
+    });
+    if(error){ fail(error.message); return false; }
+    if(data.session){
+      AUTH.user = data.session.user; updateAuthUI();
+      routeAfterAuth();
+      setTimeout(()=>openModal('welcome-modal'), 150);
+    } else {
+      ok('Account created! Check your email to confirm, then sign in.');
+      renderAccount();
+    }
+  } else {
+    const users = ls.get('zorie_users', []);
+    if(users.some(u=>u.email===email)){ fail('An account with this email already exists. Sign in instead.'); return false; }
+    const salt = uid()+uid();
+    const hash = await hashPassword(pw + ':' + salt);
+    users.push({ email, full_name, phone, salt, hash, created_at: todayISO() });
+    ls.set('zorie_users', users);
+    ls.set('zorie_session', { email, full_name, phone });
+    AUTH.user = { email, full_name, phone };
+    updateAuthUI();
+    routeAfterAuth();
+    setTimeout(()=>openModal('welcome-modal'), 150);
+  }
+  return false;
+}
+
+async function doSignIn(e){
+  e.preventDefault();
+  const err = document.getElementById('auth-err');
+  const fail = msg =>{ if(err){ err.textContent=msg; err.className='text-xs mt-2 text-red-500'; } };
+  const email = (document.getElementById('si-email').value||'').trim().toLowerCase();
+  const pw = document.getElementById('si-pw').value;
+  if(!email || !pw){ fail('Please enter your email and password.'); return false; }
+  if(sb){
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if(error){ fail('Incorrect email or password.'); return false; }
+    AUTH.user = data.user; updateAuthUI();
+    routeAfterAuth();
+  } else {
+    const users = ls.get('zorie_users', []);
+    const u = users.find(x=>x.email===email);
+    if(!u){ fail('No account found with that email.'); return false; }
+    const hash = await hashPassword(pw + ':' + u.salt);
+    if(hash !== u.hash){ fail('Incorrect password.'); return false; }
+    ls.set('zorie_session', { email: u.email, full_name: u.full_name, phone: u.phone });
+    AUTH.user = { email: u.email, full_name: u.full_name, phone: u.phone };
+    updateAuthUI();
+    routeAfterAuth();
+  }
+  return false;
+}
+
+async function signOut(){
+  if(sb){ await sb.auth.signOut(); }
+  else { ls.set('zorie_session', null); }
+  AUTH.user = null; updateAuthUI();
+  renderAccount();
+}
+
+function setAuthTab(mode){
+  const inBtn = document.getElementById('ac-tab-in');
+  const upBtn = document.getElementById('ac-tab-up');
+  const panel = document.getElementById('auth-panel');
+  if(!panel) return;
+  const inForm = signInFormHTML(), upForm = signUpFormHTML();
+  if(mode==='in'){ panel.innerHTML = inForm; }
+  else { panel.innerHTML = upForm; }
+  if(inBtn && upBtn){
+    inBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='in' ? 'border-forest text-forest font-medium' : 'border-transparent text-gray-500');
+    upBtn.className = 'flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 ' + (mode==='up' ? 'border-forest text-forest font-medium' : 'border-transparent text-gray-500');
+  }
+}
+
+function signInFormHTML(){
+  return `
+  <form onsubmit="return doSignIn(event)">
+    <label>Email</label>
+    <input type="email" id="si-email" placeholder="you@example.com" required>
+    <label>Password</label>
+    <input type="password" id="si-pw" required>
+    <div id="auth-err" class="text-xs mt-2"></div>
+    <button class="btn btn-forest w-full mt-4">Sign In</button>
+  </form>
+  <div class="text-center mt-6 text-sm">
+    <span class="text-gray-600">New here?</span>
+    <button type="button" onclick="setAuthTab('up')" class="text-gold underline ml-1">Create an account</button>
+  </div>`;
+}
+
+function signUpFormHTML(){
+  return `
+  <form onsubmit="return doSignUp(event)">
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div><label>Full Name</label><input type="text" id="su-name" placeholder="Your name" required></div>
+      <div><label>Phone Number</label><input type="tel" id="su-phone" placeholder="e.g. 0816 957 7178" required></div>
+    </div>
+    <label>Email</label>
+    <input type="email" id="su-email" placeholder="you@example.com" required>
+    <label>Password</label>
+    <div class="relative">
+      <input type="password" id="su-pw" required style="padding-right:2.6rem">
+      <button type="button" onclick="togglePasswordVisibility('su-pw', this)" aria-label="Show password" class="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-forest transition rounded-md">
+        <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-closed hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
+    <p class="text-[11px] text-gray-500 mt-1">Must start with a special character (!, @, #, $, %, ^, &, *) and be at least 6 characters.</p>
+    <div id="auth-err" class="text-xs mt-2"></div>
+    <button class="btn btn-forest w-full mt-4">Create Account</button>
+  </form>
+  <div class="text-center mt-6 text-sm">
+    <span class="text-gray-600">Already have an account?</span>
+    <button type="button" onclick="setAuthTab('in')" class="text-gold underline ml-1">Sign in</button>
+  </div>`;
+}
+
+async function myOrders(){
+  const me = currentUser();
+  if(!me) return [];
+  if(sb){
+    try{
+      const { data, error } = await sb.from('orders').select('*')
+        .eq('user_id', me.id).order('created_at',{ascending:false});
+      return error ? [] : (data||[]).map(normalizeOrder);
+    }catch(e){ return []; }
+  }
+  const email = (me.email||'').toLowerCase();
+  return DB.orders
+    .filter(o=>String((o.customer||{}).email||'').toLowerCase()===email)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+
+function orderStatusBadge(s){
+  const t = (s||'').toLowerCase();
+  let cls = 'bg-gray-100 text-gray-600';
+  if(t.includes('awaiting')) cls = 'bg-amber-100 text-amber-800';
+  else if(t.includes('proof')||t.includes('paid')) cls = 'bg-sky-100 text-sky-800';
+  else if(t==='processing') cls = 'bg-gold-pale text-forest-dark';
+  else if(t==='shipped') cls = 'bg-forest text-cream';
+  else if(t==='delivered') cls = 'bg-green-600 text-white';
+  else if(t==='cancelled') cls = 'bg-red-100 text-red-700';
+  return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s||'Processing'}</span>`;
+}
+
+async function renderAccount(){
+  const app = document.getElementById('app');
+  const me = currentUser();
+  if(!me){
+    app.innerHTML = `
+    <section class="max-w-md mx-auto px-6 py-16">
+      <div class="text-center mb-8">
+        <h1 class="serif text-3xl">My Account</h1>
+        <p class="text-sm text-gray-500 mt-2">Sign in to track your orders, or create an account for faster checkout.</p>
+      </div>
+      <div class="flex border-b border-[#e4dcc7] mb-6">
+        <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest font-medium">Sign In</button>
+        <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-gray-500">Create Account</button>
+      </div>
+      <div id="auth-panel">${signInFormHTML()}</div>
+    </section>`;
+    return;
+  }
+  app.innerHTML = `<div class="text-center py-28"><div class="mx-auto mb-5 w-8 h-8 border-2 border-[#e4dcc7] border-t-gold rounded-full animate-spin"></div><p class="text-sm text-gray-500">Loading your account…</p></div>`;
+  const orders = await myOrders();
+  const name = profileName(me);
+  const email = (me.email || profileEmail(me));
+  const phone = (me.user_metadata||{}).phone || me.phone || '—';
+  app.innerHTML = `
+  <section class="max-w-3xl mx-auto px-6 py-16">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div>
+        <h1 class="serif text-3xl">Hello, ${name.split(' ')[0]}</h1>
+        <p class="text-sm text-gray-500 mt-1">${email} · ${phone}</p>
+      </div>
+      <button onclick="signOut()" class="btn btn-outline btn-sm">Sign Out</button>
+    </div>
+    <div class="text-xs tracking-wideish uppercase text-gold mb-3">My Orders (${orders.length})</div>
+    ${orders.length===0 ? `
+      <div class="border border-dashed border-[#e4dcc7] p-8 text-center">
+        <p class="text-sm text-gray-600 mb-3">You haven't placed any orders yet.</p>
+        <a href="#shop" class="btn btn-forest btn-sm">Start Shopping</a>
+      </div>` :
+      `<div class="space-y-4">
+        ${orders.map(o=>`
+        <div class="border border-[#e4dcc7] p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span class="text-sm font-semibold text-forest-dark">${o.id}</span>
+            ${orderStatusBadge(o.status)}
+          </div>
+          <div class="text-xs text-gray-500 mb-3">Placed ${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
+          <div class="text-sm text-gray-700 space-y-1 mb-3">
+            ${(o.items||[]).map(i=>`<div>${i.qty} × ${i.name}${i.size?` <span class="text-gray-500">(${i.size})</span>`:''}</div>`).join('')}
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#eee3cf]">
+            <span class="text-sm">${((o.payMethod||o.paymethod)==='paystack')?'Paystack':((o.payMethod||o.paymethod)==='opay'?'OPay (Transfer)':'OPay / Bank')}</span>
+            <span class="serif text-lg text-forest-dark">${naira(o.total)}</span>
+          </div>
+        </div>`).join('')}
+      </div>`}
+  </section>`;
+}
+
 function findProduct(id){ return DB.products.find(p=>p.id===id); }
 
 /* ---------- badges ---------- */
@@ -170,6 +462,7 @@ function closeAllOverlays(){
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('cart-drawer').classList.remove('open');
   document.getElementById('wishlist-drawer').classList.remove('open');
+  document.querySelectorAll('.modal-wrap').forEach(m=>m.classList.remove('open'));
 }
 function openCart(){ renderCart(); document.getElementById('overlay').classList.add('open'); document.getElementById('cart-drawer').classList.add('open'); }
 function openWishlistDrawer(){ renderWishlistDrawer(); document.getElementById('overlay').classList.add('open'); document.getElementById('wishlist-drawer').classList.add('open'); }
@@ -304,13 +597,14 @@ function parseHash(){
 }
 
 const ROUTE_META = {
-  home:     { title:'Zorie Collectibles — Jewellery That Tells Your Story', desc:'Handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely with Paystack.' },
+  home:     { title:'Zorie Collectibles — Jewellery That Tells Your Story', desc:'Handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely, pay by transfer.' },
   shop:     { title:'Shop — Zorie Collectibles', desc:'Browse bracelets, necklaces, pearl and gift sets. Free Lagos delivery on orders above ₦50,000.' },
   product:  { title:'Zorie Collectibles', desc:'Handcrafted jewellery from Zorie Collectibles.' },
   about:    { title:'About Us — Zorie Collectibles', desc:'The story behind Zorie Collectibles — beauty meets meaning.' },
   custom:   { title:'Customized Pieces — Zorie Collectibles', desc:'Add a name or word to your own bead bracelet, handmade to order.' },
-  checkout: { title:'Checkout — Zorie Collectibles', desc:'Secure checkout powered by Paystack.' },
+  checkout: { title:'Checkout — Zorie Collectibles', desc:'Secure checkout by bank transfer.' },
   track:    { title:'Track Order — Zorie Collectibles', desc:'Track your Zorie Collectibles order.' },
+  account:  { title:'My Account — Zorie Collectibles', desc:'Sign in to view your Zorie Collectibles orders.' },
   'opay-callback': { title:'Confirming Payment — Zorie Collectibles', desc:'Confirming your OPay payment.' },
   admin:    { title:'Admin — Zorie Collectibles', desc:'Store owner dashboard.' },
   policies: { title:'Store Policies — Zorie Collectibles', desc:'Shipping, returns, privacy and terms.' },
@@ -340,6 +634,7 @@ function router(){
   else if(route==='custom'){ renderCustom(); setMeta(ROUTE_META.custom); }
   else if(route==='checkout'){ renderCheckoutPage(); setMeta(ROUTE_META.checkout); }
   else if(route==='track'){ renderTrackOrder(); setMeta(ROUTE_META.track); }
+  else if(route==='account'){ renderAccount(); setMeta(ROUTE_META.account); }
   else if(route==='opay-callback'){ renderOpayCallback(params); setMeta(ROUTE_META['opay-callback']); }
   else if(route==='admin'){ renderAdminGate(); setMeta(ROUTE_META.admin); }
   else if(route==='policies'){ renderPolicies(params.page); setMeta(ROUTE_META.policies); }
@@ -746,6 +1041,10 @@ function checkoutFormHTML(lines, discountPct){
   const discountAmt = Math.round(subtotal * (discountPct||0)/100);
   const total = subtotal - discountAmt + delivery;
   const hasActiveDiscounts = (DB.discounts||[]).some(d=>d.active);
+  const me = currentUser();
+  const pName = me ? ((me.user_metadata||{}).full_name || me.full_name || '') : '';
+  const pPhone = me ? ((me.user_metadata||{}).phone || me.phone || '') : '';
+  const pEmail = me ? (me.email || '') : '';
   return `
   <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
   <h2 class="serif text-3xl mb-8">Checkout</h2>
@@ -753,10 +1052,10 @@ function checkoutFormHTML(lines, discountPct){
     <form id="checkout-form" onsubmit="return placeOrder(event)">
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Delivery Information</div>
       <div class="grid sm:grid-cols-2 gap-4 mb-4">
-        <div><label>Full Name</label><input type="text" id="co-name" required></div>
-        <div><label>Phone Number</label><input type="tel" id="co-phone" required></div>
+        <div><label>Full Name</label><input type="text" id="co-name" value="${pName}" required></div>
+        <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required></div>
       </div>
-      <div class="mb-4"><label>Email</label><input type="email" id="co-email" required></div>
+      <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required></div>
       <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required></textarea></div>
       <div class="grid sm:grid-cols-2 gap-4 mb-6">
         <div><label>City</label><input type="text" id="co-city" required></div>
@@ -769,13 +1068,10 @@ function checkoutFormHTML(lines, discountPct){
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Payment Method</div>
       <div class="space-y-3 mb-4">
         <label class="flex items-center gap-3 border border-[#e4dcc7] p-3 cursor-pointer">
-          <input type="radio" name="pay" value="paystack" checked onchange="togglePayMethod(this.value)"> <span class="text-sm">Pay with Paystack (Card / Bank Transfer / USSD)</span>
-        </label>
-        <label class="flex items-center gap-3 border border-[#e4dcc7] p-3 cursor-pointer">
-          <input type="radio" name="pay" value="opay" onchange="togglePayMethod(this.value)"> <span class="text-sm">Pay by Transfer to OPay Account</span>
+          <input type="radio" name="pay" value="opay" checked onchange="togglePayMethod(this.value)"> <span class="text-sm">Pay by Transfer to OPay Account</span>
         </label>
       </div>
-      <div id="opay-details" class="hidden mb-6 border border-gold-light/50 bg-gold-pale/40 rounded-md p-4">
+      <div id="opay-details" class="mb-6 border border-gold-light/50 bg-gold-pale/40 rounded-md p-4">
         <div class="text-xs tracking-wideish uppercase text-gold mb-2">OPay Transfer Details</div>
         <div class="space-y-1 text-sm">
           <div><span class="text-gray-500">Account Name:</span> <b>${CONFIG.opay.accountName || '—'}</b></div>
@@ -784,7 +1080,7 @@ function checkoutFormHTML(lines, discountPct){
         </div>
         <p class="text-xs text-gray-500 mt-3">Transfer the order total to the account above, then place your order and send your proof of payment via WhatsApp so we can confirm it.</p>
       </div>
-      <p class="text-[11px] text-gray-600 mb-6">Pay securely online with Paystack, or transfer to our OPay account.</p>
+      <p class="text-[11px] text-gray-600 mb-6">Place your order and transfer payment to our OPay account to confirm.</p>
 
       ${hasActiveDiscounts ? `
       <div class="mb-6">
@@ -840,25 +1136,26 @@ function applyDiscount(){
 }
 
 function renderCheckoutPage(preserveDiscount){
+  if(!currentUser()){
+    document.getElementById('app').innerHTML = `
+      <div class="max-w-md mx-auto px-6 py-16 relative">
+        <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
+        <h2 class="serif text-3xl mb-1 text-center">Checkout</h2>
+        <p class="text-sm text-gray-500 text-center mb-6">Please sign in or create an account to place your order.</p>
+        <div class="flex border-b border-[#e4dcc7] mb-6">
+          <button id="ac-tab-in" onclick="setAuthTab('in')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-forest text-forest font-medium">Sign In</button>
+          <button id="ac-tab-up" onclick="setAuthTab('up')" class="flex-1 py-3 text-sm uppercase tracking-wideish border-b-2 border-transparent text-gray-500">Create Account</button>
+        </div>
+        <div id="auth-panel">${signInFormHTML()}</div>
+      </div>`;
+    return;
+  }
   if(!preserveDiscount) appliedDiscount = 0;
   const lines = cartLines();
   const html = checkoutFormHTML(lines, appliedDiscount);
   if(location.hash.startsWith('#checkout')){
     document.getElementById('app').innerHTML = `<div class="max-w-6xl mx-auto px-6 py-14 relative">${html}</div>`;
   }
-}
-
-/* Load Paystack inline.js on demand — only when the customer reaches payment. */
-function loadPaystack(){
-  return new Promise((resolve)=>{
-    if(typeof PaystackPop !== 'undefined') return resolve(true);
-    const s = document.createElement('script');
-    s.src = 'https://js.paystack.co/v1/inline.js';
-    s.async = true;
-    s.onload = ()=> resolve(typeof PaystackPop !== 'undefined');
-    s.onerror = ()=> resolve(false);
-    document.head.appendChild(s);
-  });
 }
 
 async function placeOrder(e){
@@ -874,6 +1171,7 @@ async function placeOrder(e){
   const order = {
     id: 'ZC-' + Date.now().toString().slice(-8),
     date: todayISO(),
+    user_id: (currentUser()||{}).id || null,
     customer: {
       name: document.getElementById('co-name').value,
       phone: document.getElementById('co-phone').value,
@@ -886,42 +1184,17 @@ async function placeOrder(e){
     subtotal, discount: discountAmt, delivery, total,
     payMethod, status: 'Processing'
   };
-
-  const btn = e.target.querySelector('button[type=submit], button');
+const btn = e.target.querySelector('button[type=submit], button');
   const btnLabel = btn.textContent;
 
   // free order → finish immediately
   if(total<=0){ await finalizeOrder(order, null); return false; }
 
-  // Paystack popup (only when a real public key is configured)
-  const pk = CONFIG.paystack.publicKey;
-  let usePaystack = payMethod==='paystack' && pk && !/pk_(test|live)_xxxxxxxx/.test(pk);
-  if(usePaystack && typeof PaystackPop === 'undefined'){
-    btn.textContent = 'Loading secure payment…'; btn.disabled = true;
-    usePaystack = await loadPaystack();
-    if(!usePaystack){ btn.textContent = btnLabel; btn.disabled = false; }
-  }
+  // OPay transfer / demo mode
+  order.status = 'Awaiting Payment';
+  btn.textContent = 'Placing order…'; btn.disabled = true;
+  await finalizeOrder(order, null);
 
-  if(usePaystack){
-    const reference = 'ZC' + Date.now().toString().slice(-8) + '-' + uid();
-    btn.textContent = 'Opening secure payment…'; btn.disabled = true;
-    const handler = PaystackPop.setup({
-      key: pk,
-      email: order.customer.email,
-      amount: Math.round(total*100),
-      currency: 'NGN',
-      ref: reference,
-      metadata: { order_id: order.id, custom_fields:[{ display_name:'Order No.', variable_name:'order_id', value: order.id }] },
-      callback: async function(response){ await finalizeOrder(order, response.reference); },
-      onClose: function(){ btn.textContent = btnLabel; btn.disabled = false; }
-    });
-    handler.openIframe();
-  } else {
-    // OPay transfer / demo mode
-    order.status = payMethod==='opay' ? 'Awaiting Payment' : 'Processing';
-    btn.textContent = 'Placing order…'; btn.disabled = true;
-    await finalizeOrder(order, null);
-  }
   return false;
 }
 
@@ -1089,11 +1362,13 @@ function renderTrackOrder(){
   document.getElementById('app').innerHTML = `
   <section class="max-w-xl mx-auto px-6 py-20">
     <h1 class="serif text-3xl mb-2 text-center">Track Your Order</h1>
-    <p class="text-sm text-gray-500 text-center mb-8">Enter the order number from your confirmation email.</p>
-    <div class="flex gap-2 mb-6">
-      <input type="text" id="track-id" placeholder="e.g. ZC-12345678">
-      <button onclick="trackOrder()" class="btn btn-forest">Track <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+    <p class="text-sm text-gray-500 text-center mb-8">Enter the order number and the email you used at checkout.</p>
+    <div class="space-y-3 mb-6">
+      <input type="text" id="track-id" placeholder="Order number, e.g. ZC-12345678">
+      <input type="email" id="track-email" placeholder="Email used at checkout">
+      <button onclick="trackOrder()" class="btn btn-forest w-full">Track <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </div>
+    <p class="text-xs text-gray-500 text-center">Signed in? <a href="#account" class="text-gold underline">View my orders</a></p>
     <div id="track-result"></div>
   </section>`;
 }
@@ -1108,14 +1383,18 @@ function trackOrderHTML(order){
 }
 async function trackOrder(){
   const id = document.getElementById('track-id').value.trim();
+  const email = (document.getElementById('track-email').value||'').trim().toLowerCase();
   const el = document.getElementById('track-result');
-  const none = `<div class="text-center text-sm text-red-500">No order found with that number.</div>`;
-  if(!id){ el.innerHTML = none; return; }
+  const none = `<div class="text-center text-sm text-red-500">No order found with that number and email.</div>`;
+  if(!id || !email){ el.innerHTML = none; return; }
   if(sb){
-    const { data, error } = await sb.from('orders').select('*').eq('id', id).maybeSingle();
-    el.innerHTML = (data && !error) ? trackOrderHTML(data) : none;
+    try{
+      const res = await sb.functions.invoke('checkout', { body:{ method:'track', orderId:id, email } });
+      const ok = res && !res.error && res.data && res.data.ok;
+      el.innerHTML = ok ? trackOrderHTML(normalizeOrder(res.data.order)) : none;
+    }catch(err){ el.innerHTML = none; }
   } else {
-    const order = DB.orders.find(o=>o.id===id);
+    const order = DB.orders.find(o=>o.id===id && String((o.customer||{}).email||'').toLowerCase()===email);
     el.innerHTML = order ? trackOrderHTML(order) : none;
   }
 }
@@ -1189,6 +1468,7 @@ const ADMIN_TABS = [
   ['products','Products','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>'],
   ['orders','Orders','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/></svg>'],
   ['customers','Customers','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>'],
+  ['mycustomers','My Customers','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7 18c0-2.5 2-4 5-4s5 1.5 5 4"/></svg>'],
   ['discounts','Discounts','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>']
 ];
 
@@ -1572,9 +1852,10 @@ async function renderAdmin(){
     orders.forEach(o=>{
       const em = (o.customer||{}).email;
       if(!em) return;
-      if(!byEmail[em]) byEmail[em] = {...(o.customer||{}), orders:0, spent:0};
-      byEmail[em].orders += 1;
-      byEmail[em].spent += Number(o.total||0);
+      const key = em.toLowerCase();
+      if(!byEmail[key]) byEmail[key] = {...(o.customer||{}), email: em, orders:0, spent:0};
+      byEmail[key].orders += 1;
+      byEmail[key].spent += Number(o.total||0);
     });
     const list = Object.values(byEmail);
     c.innerHTML = `
@@ -1594,6 +1875,38 @@ async function renderAdmin(){
       </div>`;
   }
 
+  else if(adminTab==='mycustomers'){
+    let registered = [];
+    let warn = '';
+    if(sb){
+      try{
+        const res = await sb.functions.invoke('checkout', { body:{ method:'customers' } });
+        if(res && !res.error && res.data && res.data.ok && Array.isArray(res.data.customers)){
+          registered = res.data.customers;
+        } else if(res && !res.error && res.data && res.data.ok && !Array.isArray(res.data.customers)){
+          warn = 'Your deployed <b>checkout</b> edge function is outdated (it does not have the customer list yet). Redeploy it with: <code>supabase functions deploy checkout --no-verify-jwt</code>';
+        } else {
+          const em = (res && res.error && res.error.message) || 'request failed';
+          warn = 'Could not load customers (' + em + '). Make sure your owner user has the <b>role: admin</b> claim (App metadata) in Supabase, then sign out and back in.';
+        }
+      }catch(e){ warn = 'Could not load registered customers (connection error). Please try again.'; }
+    } else {
+      registered = ls.get('zorie_users', []).map(u=>({ full_name:u.full_name, email:u.email, phone:u.phone, created_at:u.created_at }));
+    }
+    c.innerHTML = `
+      <h2 class="serif text-2xl mb-6">My Customers <span class="text-sm font-normal text-gray-500">(${registered.length} registered)</span></h2>
+      ${warn ? `<div class="border border-red-200 bg-red-50 text-red-700 text-sm rounded-md p-4 mb-6">${warn}</div>` : ''}
+      <div class="overflow-x-auto">
+      <table class="admin-table w-full min-w-[420px] responsive">
+        <thead><tr><th>Full Name</th><th>Email</th><th>Phone</th></tr></thead>
+        <tbody>
+          ${registered.map(r=>`<tr><td>${r.full_name||'—'}</td><td data-label="Email">${r.email||'—'}</td><td data-label="Phone">${r.phone||'—'}</td></tr>`).join('')}
+          ${registered.length===0 && !warn ? '<tr><td colspan="3" class="text-center text-gray-600 py-8">No registered customers yet.</td></tr>':''}
+        </tbody>
+      </table>
+      </div>`;
+  }
+
   else if(adminTab==='discounts'){
     c.innerHTML = `
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
@@ -1609,11 +1922,11 @@ async function renderAdmin(){
             <td class="font-semibold">${d.code}</td>
             <td data-label="Discount">${d.pct}%</td>
             <td data-label="Status">
-              <button type="button" onclick="toggleDiscount(${i})" class="inline-flex items-center gap-2 cursor-pointer bg-transparent border-0 p-0" aria-label="Toggle ${d.code}">
+              <button type="button" onclick="toggleDiscount(${i})" class="flex flex-col items-start gap-1.5 cursor-pointer bg-transparent border-0 p-0" aria-label="Toggle ${d.code}">
                 <span class="relative inline-block w-9 h-5 rounded-full transition ${d.active?'bg-forest':'bg-gray-300'}">
                   <span class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${d.active?'translate-x-4':'translate-x-0.5'}"></span>
                 </span>
-                <span class="text-xs ${d.active?'text-forest font-medium':'text-gray-500'}">${d.active?'Active · shows at checkout':'Inactive · hidden'}</span>
+                <span class="text-xs whitespace-nowrap ${d.active?'text-forest font-medium':'text-gray-500'}">${d.active?'Active':'Inactive'}</span>
               </button>
             </td>
             <td data-label=""><button onclick="removeDiscount(${i})" class="text-red-500 underline text-xs">Remove</button></td>
@@ -1842,7 +2155,7 @@ async function createDiscount(e){
   DB.discounts = discounts;
   closeModal('discount-modal');
   await renderAdmin();
-  toast(active ? `Code ${code} created and activated — visible at checkout` : `Code ${code} created (inactive)`);
+  toast(active ? `Code ${code} created and activated` : `Code ${code} created (inactive)`);
   return false;
 }
 async function toggleDiscount(i){
@@ -1851,7 +2164,7 @@ async function toggleDiscount(i){
   discounts[i].active = !discounts[i].active;
   DB.discounts = discounts;
   await renderAdmin();
-  toast(discounts[i].active ? `Code ${discounts[i].code} activated — it now shows at checkout` : `Code ${discounts[i].code} deactivated — hidden from checkout`);
+  toast(discounts[i].active ? `Code ${discounts[i].code} activated` : `Code ${discounts[i].code} deactivated`);
 }
 async function removeDiscount(i){
   const discounts = DB.discounts;
@@ -1883,7 +2196,7 @@ const POLICIES = {
       <h3>How to start a return</h3>
       <p>Email <a href="mailto:zoriecollectibles@gmail.com" class="underline">zoriecollectibles@gmail.com</a> within 7 days of delivery with your order number. We will confirm and give you the return address in Lagos.</p>
       <h3>Refunds</h3>
-      <p>Once we receive and inspect the item, refunds are processed within 5–7 business days to the original payment method (Paystack).</p>
+      <p>Once we receive and inspect the item, refunds are processed within 5–7 business days to your original payment method.</p>
       <h3>Damaged or wrong item</h3>
       <p>If your order arrives damaged or incorrect, send us a photo within 48 hours and we will remake or refund it at no cost to you.</p>`
   },
@@ -1891,7 +2204,7 @@ const POLICIES = {
     title: 'Privacy Policy', icon: '🔒',
     body: `
       <h3>What we collect</h3>
-      <p>We collect only what is needed to fulfil your order: your name, phone number, email, delivery address, and payment reference. We never store your card details — payments are handled by Paystack.</p>
+      <p>We collect only what is needed to fulfil your order: your name, phone number, email, delivery address, and payment reference. We never store your card details.</p>
       <h3>How we use it</h3>
       <p>Your details are used to process orders, arrange delivery, and send order updates. If you subscribe to the newsletter, we use your email to send occasional updates.</p>
       <h3>Your rights</h3>
@@ -1903,7 +2216,7 @@ const POLICIES = {
       <h3>Products</h3>
       <p>All items are handmade and may vary slightly from photos. We describe materials honestly, and colours may differ a little on your screen.</p>
       <h3>Pricing & Payment</h3>
-      <p>Prices are shown in Nigerian Naira (₦). Payment is collected securely by Paystack at checkout. Promo codes must be applied at checkout and cannot be combined in ways not stated.</p>
+      <p>Prices are shown in Nigerian Naira (₦). Payment is made by bank transfer to our OPay account at checkout. Promo codes must be applied at checkout and cannot be combined in ways not stated.</p>
       <h3>Limitation of liability</h3>
       <p>Zorie Collectibles is not liable for delays caused by courier partners beyond our reasonable control, or for misuse of jewellery.</p>`
   }
@@ -1929,8 +2242,8 @@ function renderFaq(){
     ['How long does delivery take?','Orders ship within 2–4 business days. Lagos delivery is usually 1–3 days after dispatch; other states 2–6 days depending on location.'],
     ['Do you deliver outside Nigeria?','Not yet. We currently deliver nationwide in Nigeria, with free Lagos pickup available.'],
     ['Can I personalize a bracelet?','Yes. Choose any piece marked as customizable and add your name or word at checkout (up to 14 characters).'],
-    ['How do I pay?','Card, bank transfer and USSD via Paystack at checkout. Bank transfer (OPay) is also available.'],
-    ['How do I track my order?','Open the Track Order page and enter your order number (e.g. ZC-12345678).'],
+    ['How do I pay?','By bank transfer to our OPay account at checkout. We confirm once your payment proof arrives.'],
+    ['How do I track my order?','Open the Track Order page and enter your order number (e.g. ZC-12345678) and the email you used at checkout.'],
     ['What if I receive a damaged item?','Contact us within 48 hours with a photo and we will remake or refund it free of charge.'],
     ['Do you offer gift wrapping?','Yes — every order is packed with care and many pieces are ready to gift. Mention a gift note at checkout and we will add it.'],
     ['Can I cancel my order?','If your order has not been shipped yet, email us and we will cancel and refund it. Personalized pieces enter production quickly, so act fast.']
@@ -2042,5 +2355,6 @@ function applyConfig(){
 document.getElementById('footer-year').textContent = new Date().getFullYear();
 applyConfig();
 updateBadges();
+initAuth();
 router();
 loadRemote().then(()=>{ updateBadges(); router(); }).catch(()=>{});

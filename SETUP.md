@@ -7,8 +7,13 @@ and becomes a **real online store** once you complete the steps below. Work top 
 > It generates `config.js` from your environment variables (see "Environment
 > variables"). `config.js` is gitignored and never committed.
 
-You can accept payments two ways — customers choose at checkout:
-- **Paystack** (card / bank transfer / USSD) — hosted popup
+> **Payment status:** **Paystack is currently disabled** — checkout uses **OPay
+> bank transfer** only (account details shown at checkout, proof confirmed via
+> WhatsApp). The Paystack code is still in place; re-enable it later by restoring
+> the Paystack option in the checkout form (`script.js`, "Payment Method") and
+> setting `PAYSTACK_PUBLIC_KEY`.
+
+You can accept payments — customers pay by **OPay bank transfer** at checkout:
 - **OPay** (OPay wallet / bank transfer / card / USSD) — OPay hosted cashier page
 
 ---
@@ -25,22 +30,36 @@ You can accept payments two ways — customers choose at checkout:
      (The pooler cluster index — `aws-0` vs `aws-1` — varies per project; use the one that accepts your tenant.)
    - **SQL Editor** — paste the contents of `supabase/schema.sql` and click **Run**.
    Either way this creates the tables, row-level security, and the public `product-images` storage bucket.
+   > **Already set up before customer accounts?** Run the extra migration
+   > `supabase/migrations/20260919000000_customer_accounts.sql` (SQL Editor) so
+   > orders can be linked to customers (`orders.user_id`) and only the admin can
+   > write to the catalog.
 3. Create your owner login:
    - Dashboard → **Authentication → Users → Add user** → enter your email + a strong password.
    - (Or uncomment the last block in `supabase/schema.sql` and run it once.)
    - **Note this email** — you will set it as `ADMIN_EMAIL` in your environment
      (see "Environment variables"). The admin sign-in on the site is password-only;
      that email is used automatically and hidden.
-4. Copy your project keys — Dashboard → **Project Settings → API** → copy the
+4. **Mark your account as the admin** (required now that customers can create
+   accounts): Dashboard → **Authentication → Users** → open your owner user →
+   in **App metadata** add a field `role` with value `admin` and save. Without
+   this the admin dashboard will not be able to read orders/customers.
+5. **Allow instant customer sign-up**: Dashboard → **Authentication → Providers →
+   Email** → turn **OFF** "Confirm email". Customers then get an account the
+   moment they sign up (no confirmation link needed). Keep it ON only if you
+   want email verification first.
+6. Copy your project keys — Dashboard → **Project Settings → API** → copy the
    **Project URL** and the **anon/public key**, and set them as `SUPABASE_URL` and
    `SUPABASE_ANON_KEY` (see "Environment variables").
 
 ## 2. Payment accounts
 
-### Paystack
+### Paystack (currently disabled — skip until you want to re-enable card payments)
 1. Log in at https://dashboard.paystack.com.
 2. **Settings → API Keys** → copy your **Test public key** (`pk_test_…`).
 3. Later, when taking real money, use the **Live public key** (`pk_live_…`).
+4. To re-enable: put the key in `PAYSTACK_PUBLIC_KEY`, restore the Paystack option
+   in the checkout form (`script.js`, "Payment Method"), and redeploy.
 
 ### OPay
 1. Create a merchant account at https://merchant.opaycheckout.com and complete KYC.
@@ -84,6 +103,11 @@ supabase functions deploy checkout --no-verify-jwt
 supabase functions deploy seed-catalog contact
 ```
 
+> The `checkout` function was updated for customer accounts (it links each order
+> to the signed-in customer, powers private order tracking, and lists registered
+> customers for the admin's "My Customers" tab). Re-run the `checkout` deploy
+> command whenever you pull this change.
+
 > `--no-verify-jwt` lets both your browser and the OPay callback reach `checkout`
 > without needing a login token.
 
@@ -124,22 +148,30 @@ the `products` table on first load.
 ## 6. Test
 
 1. Visit your live URL. Shop should show the catalog.
-2. **Paystack test:** add to cart → Checkout → Pay with Paystack → test card `4084 0840 8408 4081` (any CVV/expiry) → order completes.
-3. **OPay test:** Checkout → Pay with OPay → you are taken to the OPay cashier → complete payment in sandbox → you are returned and the order is confirmed.
+2. **Accounts & orders:** Checkout now asks the customer to **sign in or create an
+   account** before ordering (full name, email, phone + a password starting with a
+   special character). After sign-up/sign-in the customer lands on the **home page**
+   to start shopping (items stay in their bag). New accounts appear in Admin →
+   **My Customers**.
+3. **OPay test:** add to cart → Checkout (sign in or create an account) → Pay by OPay transfer → transfer the total in sandbox → confirm → order completes.
 4. Check the admin dashboard (footer → Admin) with the login you created in step 1.3.
 5. Confirm you receive the **new-order email** and the customer receives a confirmation.
 
-When everything works, flip to **live**: set `OPAY_ENV=live` secret + live OPay keys, put your Paystack **live** public key in `config.js`, and redeploy.
+When everything works, flip to **live**: set `OPAY_ENV=live` secret + live OPay keys, and redeploy.
 
 ---
 
 ## Troubleshooting
 
-- **Checkout skips Paystack popup** → `PAYSTACK_PUBLIC_KEY` is empty; set it in `.env`/Vercel and run `npm run build`. The Paystack script now loads on demand at checkout.
+- **Paystack disabled (current)** → checkout shows OPay transfer only. To re-enable card
+  payments, restore the Paystack option in `script.js` (checkout "Payment Method") and set
+  `PAYSTACK_PUBLIC_KEY`, then run `npm run build`.
 - **OPay "Could not start OPay"** → the `checkout` edge function is missing its OPay secrets, or `SITE_URL` isn't set.
 - **OPay returns "Payment not completed"** → payment wasn't `SUCCESS` in sandbox; retry, or the confirm step couldn't reach `/cashier/status` (check `OPAY_PRIVATE_KEY`).
 - **Orders save but no emails** → the `checkout` edge function isn't deployed, or `RESEND_API_KEY`/`OWNER_EMAIL` aren't set as secrets.
 - **Admin won't sign in** → the user wasn't created in Supabase Auth (step 1.3), or `ADMIN_EMAIL` doesn't match it.
+- **Admin signs in but dashboard is empty** → the `role: admin` claim (step 1.4) isn't set on your owner user, or you haven't re-signed-in since setting it.
+- **Customer can't sign up / no account created** → "Confirm email" is still ON (step 1.5), so they need the confirmation link; turn it off for instant login.
 - **Catalog empty** → the `seed-catalog` function wasn't deployed (redeploy it and reload the homepage), or the images weren't uploaded to the `product-images` bucket.
 - **"Catalog seed failed"** → run `supabase functions deploy seed-catalog` then refresh.
 
@@ -149,6 +181,6 @@ When everything works, flip to **live**: set `OPAY_ENV=live` secret + live OPay 
 - `vercel.json` — Vercel routing config
 - `opay-callback.html` — OPay's return page (hands payment back to the store)
 - `supabase/schema.sql` — database tables + security rules
-- `supabase/functions/checkout` — Paystack verify + OPay create/confirm, saves orders, emails you + customer
+- `supabase/functions/checkout` — saves orders, OPay create/confirm + customer tracking, emails you + customer
 - `supabase/functions/seed-catalog` — first-run catalog import
 - `supabase/functions/contact` — emails you when a customer uses the contact form
