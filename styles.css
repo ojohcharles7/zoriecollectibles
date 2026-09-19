@@ -134,13 +134,13 @@
   table.admin-table td{ padding:.65rem .7rem; border-bottom:1px solid #efe9db; font-size:.88rem; vertical-align:middle; }
 
   /* admin tables → stacked cards on mobile */
-  @media (max-width:767px){
+  @media (max-width:1023px){
     table.responsive, table.responsive tbody{ display:block; width:100%; }
     table.responsive{ min-width:0 !important; }
     table.responsive thead{ display:none; }
     table.responsive tbody{ display:block; }
-    table.responsive tr{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem .9rem; border:1px solid #e4dcc7; border-radius:12px; padding:.75rem .95rem; margin-bottom:.8rem; background:#fff; }
-    table.responsive td{ display:flex; flex-direction:column; align-items:flex-start; gap:.1rem; border:none !important; padding:0; text-align:left; }
+    table.responsive tr{ display:grid; grid-template-columns:minmax(0,1fr); gap:.7rem; border:1px solid #e4dcc7; border-radius:12px; padding:.9rem 1rem; margin-bottom:.8rem; background:#fff; }
+    table.responsive td{ display:flex; flex-direction:column; align-items:flex-start; gap:.55rem; overflow-wrap:anywhere; border:none !important; padding:0; text-align:left; }
     table.responsive td::before{ content:attr(data-label); font-weight:600; color:#6b6552; font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; }
     table.responsive td[data-label=""]{ grid-column:1/-1; align-items:flex-end; }
     table.responsive td[data-label=""]::before{ display:none; }
@@ -148,6 +148,14 @@
     table.responsive td:first-child::before{ display:none; }
     table.responsive td[colspan]{ grid-column:1/-1; display:block; text-align:center; font-weight:400; color:#9ca3af; padding:1rem .5rem; }
     table.responsive tr:has(td[colspan]){ border:none; background:transparent; padding:0; }
+  }
+
+  /* small phones (≤375px): extra air so labels never crowd the values */
+  @media (max-width:375px){
+    table.responsive tr{ gap:.8rem; padding:1rem 1.1rem; }
+    table.responsive td{ gap:.65rem; }
+    table.responsive td::before{ letter-spacing:.1em; }
+    table.responsive td:first-child{ margin-bottom:.5rem; padding-bottom:.65rem; }
   }
 
   .qty-btn{ width:30px; height:30px; border:1px solid #d9cfb8; border-radius:999px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#5b5544; background:#fff; font-size:.95rem; line-height:1; transition:all .15s ease; }
