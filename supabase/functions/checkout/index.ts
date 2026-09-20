@@ -267,7 +267,7 @@ async function claimOrders(req, email) {
   const { data, error } = await supabase
     .from("orders")
     .update({ user_id: userId })
-    .eq("user_id", null)
+    .is("user_id", null)
     .ilike("customer->>email", em)
     .select("id");
   if (error) return json({ error: error.message }, 500);
