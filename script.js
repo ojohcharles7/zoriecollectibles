@@ -63,7 +63,7 @@ const DEFAULT_PRODUCTS = [
  {id:'p20',name:'Rainbow Pearl Stack Bracelet',cat:'Pearl Collection',price:22500,stock:13,img: imgUrl('p20.jpg'),desc:'Genuine freshwater pearls layered with gold-filled paperclip chain and pops of coral, jade and lilac gemstone beads.',sizes:['One size'],tags:['bestseller']},
 ];
 
-const CATEGORIES = [...new Set(DEFAULT_PRODUCTS.map(p=>p.cat))];
+const CATEGORIES = [...new Set([...DEFAULT_PRODUCTS.map(p=>p.cat), 'Watches', 'Perfumes'])];
 
 const DEFAULT_TESTIMONIALS = [
  {name:'Amaka O.', quote:'The rose quartz bracelet is even more beautiful in person. It arrived so well packaged, it felt like a gift to myself.'},
@@ -1130,7 +1130,7 @@ function productDetailHTML(p, isModal){
   const inWish = DB.wishlist.includes(p.id);
   return `
   <div class="grid md:grid-cols-2">
-    <div class="aspect-square md:aspect-auto bg-surface-soft">
+    <div class="aspect-square md:aspect-auto bg-surface-soft rounded-2xl overflow-hidden border-2 border-[#C9A06F]">
       <img src="${p.img}" class="w-full h-full object-cover" alt="${p.name}">
     </div>
     <div class="p-6 sm:p-10">
@@ -1266,6 +1266,7 @@ function deliveryFee(subtotal, method){
 }
 
 function checkoutFormHTML(lines, discountPct){
+  const prof = profileCache() || {};
   const subtotal = lines.reduce((s,l)=>s+l.lineTotal,0);
   const delivery = deliveryFee(subtotal, prof.delivery_method || 'Home Delivery');
   const discountAmt = Math.round(subtotal * (discountPct||0)/100);
@@ -1275,7 +1276,6 @@ function checkoutFormHTML(lines, discountPct){
   const pName = me ? ((me.user_metadata||{}).full_name || me.full_name || '') : '';
   const pPhone = me ? ((me.user_metadata||{}).phone || me.phone || '') : '';
   const pEmail = me ? (me.email || '') : '';
-  const prof = profileCache() || {};
   const pAddr = prof.address || '';
   const pCity = prof.city || '';
   const pMethod = prof.delivery_method || 'Home Delivery';
@@ -1285,19 +1285,21 @@ function checkoutFormHTML(lines, discountPct){
   <button onclick="location.hash='#shop'" class="absolute top-4 right-4 text-xl">&times;</button>
   <h2 class="serif text-3xl mb-8">Checkout</h2>
   <div class="grid md:grid-cols-[1.3fr_1fr] gap-10">
-    <form id="checkout-form" onsubmit="return placeOrder(event)">
-      <div class="text-xs tracking-wideish uppercase text-gold mb-4">Delivery Information</div>
-      <div class="grid sm:grid-cols-2 gap-4 mb-4">
-        <div><label>Full Name</label><input type="text" id="co-name" value="${pName}" required autocomplete="name"></div>
-        <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required autocomplete="tel" inputmode="tel"></div>
-      </div>
-      <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
-      <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required autocomplete="street-address">${pAddr}</textarea></div>
-      <div class="grid sm:grid-cols-2 gap-4 mb-6">
-        <div><label>City</label><input type="text" id="co-city" value="${pCity}" required autocomplete="address-level2"></div>
-        <div>
-          <label>Delivery Method</label>
-          <select id="co-method" onchange="updateDeliveryFee()">${methodOpts}</select>
+    <form id="checkout-form" onsubmit="return placeOrder(event)" class="border-2 border-[#C9A06F]/70 rounded-2xl p-5 sm:p-7">
+      <div class="border border-[#C9A06F]/50 rounded-xl p-4 sm:p-5 mb-6">
+        <div class="text-xs tracking-wideish uppercase text-gold mb-4">Delivery Information</div>
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+          <div><label>Full Name</label><input type="text" id="co-name" value="${pName}" required autocomplete="name"></div>
+          <div><label>Phone Number</label><input type="tel" id="co-phone" value="${pPhone}" required autocomplete="tel" inputmode="tel"></div>
+        </div>
+        <div class="mb-4"><label>Email</label><input type="email" id="co-email" value="${pEmail}" required autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+        <div class="mb-4"><label>Delivery Address</label><textarea id="co-address" rows="2" required autocomplete="street-address">${pAddr}</textarea></div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div><label>City</label><input type="text" id="co-city" value="${pCity}" required autocomplete="address-level2"></div>
+          <div>
+            <label>Delivery Method</label>
+            <select id="co-method" onchange="updateDeliveryFee()">${methodOpts}</select>
+          </div>
         </div>
       </div>
 
@@ -1322,7 +1324,7 @@ function checkoutFormHTML(lines, discountPct){
       <button class="btn btn-gold w-full">Place Order — ${naira(total)} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </form>
 
-    <div>
+    <div class="border-2 border-[#C9A06F]/70 rounded-2xl p-5 sm:p-7">
       <div class="text-xs tracking-wideish uppercase text-gold mb-4">Order Summary</div>
       <div class="space-y-3 mb-5 max-h-64 overflow-y-auto pr-1">
         ${lines.map(l=>`
@@ -1583,7 +1585,7 @@ function showInvoice(order){
         </div>
         <div id="opay-proof-wrap" class="flex flex-wrap gap-3">
           <a href="https://wa.me/${CONFIG.store.whatsapp}?text=${encodeURIComponent('Hi Zorie Collectibles! I just paid '+naira(order.total)+' for order '+order.id+' via OPay transfer.')}" target="_blank" class="btn btn-gold btn-sm">Send proof on WhatsApp</a>
-          <button onclick="confirmOpayPayment('${order.id}')" class="btn btn-outline btn-sm">I have made payment</button>
+          <button onclick="confirmOpayPayment('${order.id}')" class="btn btn-gold btn-sm">I have made payment</button>
         </div>
       </div>`:''}
     </div>
@@ -1633,7 +1635,7 @@ function orderPageActionsHTML(o){
       </div>
       <div class="flex flex-wrap gap-3">
         <a href="https://wa.me/${wa}?text=${encodeURIComponent('Hi Zorie Collectibles! I just paid '+naira(o.total)+' for order '+o.id+' via OPay transfer.')}" target="_blank" class="btn btn-gold btn-sm">Send proof on WhatsApp</a>
-        <button data-confirm-pay onclick="orderPageConfirm('${o.id}')" class="btn btn-outline btn-sm">I have made payment</button>
+        <button data-confirm-pay onclick="orderPageConfirm('${o.id}')" class="btn btn-gold btn-sm">I have made payment</button>
       </div>
       <p class="text-[11px] text-muted mt-3">After you mark payment, we'll confirm your transfer and start preparing your order.</p>
     </div>`;
