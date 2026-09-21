@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zorie Collectibles — Jewellery That Tells Your Story</title>
 <meta name="description" content="Zorie Collectibles — handcrafted bead jewellery, gemstone bracelets and customized name pieces, made with care in Nigeria. Shop securely online, pay by transfer.">
-<meta name="theme-color" content="#173F30">
+<meta name="theme-color" content="#5C4033">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Zorie Collectibles">
 <meta property="og:title" content="Zorie Collectibles — Jewellery That Tells Your Story">
@@ -29,7 +29,7 @@
     theme: {
       extend: {
         colors: {
-          forest: { DEFAULT:'#173F30', dark:'#0E2A20', light:'#2A5C46' },
+          forest: { DEFAULT:'#D2B48C', dark:'#5C4033', light:'#E4CFAE' },
           gold: { DEFAULT:'#B8912F', light:'#D8BC72', pale:'rgb(var(--c-gold-pale) / <alpha-value>)' },
           cream: '#F7F3EA',
           ink: 'rgb(var(--c-ink) / <alpha-value>)',
@@ -65,7 +65,7 @@
 <body class="antialiased">
 
 <!-- ============ ANNOUNCEMENT BAR ============ -->
-<div class="bg-forest text-cream text-center text-[11px] sm:text-xs tracking-wideish py-2 px-3 storefront-only">
+<div class="bg-forest-dark text-cream text-center text-[11px] sm:text-xs tracking-wideish py-2 px-3 storefront-only">
   HANDCRAFTED IN NIGERIA · FREE LAGOS DELIVERY ON ORDERS ABOVE ₦50,000
 </div>
 
@@ -77,7 +77,7 @@
       <span class="block h-[1.5px] w-6 bg-ink"></span>
     </button>
 
-    <a href="#home" class="flex items-center gap-2 select-none">
+    <a href="#home" class="flex items-center gap-2 select-none -ml-1 sm:-ml-2">
       <img src="logo.png" alt="Zorie Collectibles" class="h-9 sm:h-11 w-auto">
       <span class="serif text-xl sm:text-2xl lg:text-3xl tracking-wide text-forest-ink" style="letter-spacing:.03em">
         Zorie <span class="italic text-gold">Collectibles</span>
@@ -105,7 +105,7 @@
       </button>
       <button onclick="openCart()" aria-label="Cart" class="relative hover:text-gold transition">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6L5 3H2"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
-        <span id="cart-count" class="absolute -top-2 -right-2 bg-forest text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
+        <span id="cart-count" class="absolute -top-2 -right-2 bg-forest-dark text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center hidden"></span>
       </button>
       <button onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode" class="hover:text-gold transition">
         <svg class="theme-icon-moon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -283,7 +283,7 @@
   <div class="modal-card relative p-7 sm:p-8 max-w-sm">
     <button onclick="closeModal('admin-login-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-edge text-muted-strong hover:text-forest-ink hover:border-gold flex items-center justify-center leading-none transition">&times;</button>
     <div class="text-center">
-      <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
+      <div class="mx-auto mb-4 w-11 h-11 rounded-full bg-forest-dark flex items-center justify-center shadow-lg shadow-forest/20">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
       </div>
       <h3 class="serif text-xl mb-1">Admin Sign In</h3>
@@ -308,7 +308,7 @@
   <div class="modal-card relative p-7 sm:p-8 max-w-sm">
     <button onclick="closeModal('discount-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-edge text-muted-strong hover:text-forest-ink hover:border-gold flex items-center justify-center leading-none transition" aria-label="Close">&times;</button>
     <div class="text-center mb-5">
-      <div class="mx-auto mb-3 w-11 h-11 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
+      <div class="mx-auto mb-3 w-11 h-11 rounded-full bg-forest-dark flex items-center justify-center shadow-lg shadow-forest/20">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
       </div>
       <h3 class="serif text-xl mb-1">New Discount Code</h3>
@@ -336,7 +336,7 @@
 <div id="welcome-modal" class="modal-wrap">
   <div class="modal-card relative p-7 sm:p-8 max-w-sm text-center">
     <button onclick="closeModal('welcome-modal')" class="absolute top-3 right-3 w-7 h-7 rounded-full border border-edge text-muted-strong hover:text-forest-ink hover:border-gold flex items-center justify-center leading-none transition" aria-label="Close">&times;</button>
-    <div class="mx-auto mb-4 w-14 h-14 rounded-full bg-forest flex items-center justify-center shadow-lg shadow-forest/20">
+    <div class="mx-auto mb-4 w-14 h-14 rounded-full bg-forest-dark flex items-center justify-center shadow-lg shadow-forest/20">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
     </div>
     <h3 class="serif text-2xl mb-1">Congratulations!</h3>

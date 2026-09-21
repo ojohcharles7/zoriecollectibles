@@ -21,7 +21,7 @@ function currentTheme(){ return document.documentElement.dataset.theme || 'light
 function applyThemeColor(){
   const dark = currentTheme()==='dark';
   const m = document.querySelector('meta[name="theme-color"]');
-  if(m) m.setAttribute('content', dark ? '#121714' : '#F7F3EA');
+  if(m) m.setAttribute('content', dark ? '#17120D' : '#F7F3EA');
 }
 function toggleTheme(){
   const next = currentTheme()==='dark' ? 'light' : 'dark';
@@ -524,8 +524,8 @@ function orderStatusBadge(s){
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
   else if(t.includes('payment received')) cls = 'bg-teal-100 text-teal-800';
   else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
-  else if(t.includes('way')) cls = 'bg-forest text-cream';
-  else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
+  else if(t.includes('way')) cls = 'bg-forest-dark text-cream';
+  else if(t.includes('delivered')) cls = 'bg-[#D2B48C] text-[#47301F]';
   else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s||'Being Handcrafted'}</span>`;
 }
@@ -886,7 +886,7 @@ function productCard(p){
       <div class="wish-heart" onclick="event.stopPropagation(); toggleWishlist('${p.id}')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="${inWish?'#B8912F':'none'}" stroke="#B8912F" stroke-width="1.6"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
       </div>
-      ${p.tags && p.tags.includes('new') ? `<span class="absolute top-3 left-3 bg-forest text-cream text-[10px] tracking-wideish px-2 py-1">NEW</span>`:''}
+      ${p.tags && p.tags.includes('new') ? `<span class="absolute top-3 left-3 bg-[#D2B48C] text-[#47301F] text-[10px] tracking-wideish px-2 py-1">NEW</span>`:''}
       ${p.stock===0 ? `<span class="absolute top-3 left-3 bg-ink text-white text-[10px] tracking-wideish px-2 py-1">SOLD OUT</span>`:''}
       <div class="quick-add" onclick="event.stopPropagation(); addToCart('${p.id}',1,(${JSON.stringify(p.sizes)})[0]);">QUICK ADD +</div>
     </div>
@@ -907,7 +907,7 @@ function renderHome(){
 
   document.getElementById('app').innerHTML = `
   <!-- HERO -->
-  <section class="relative bg-forest text-cream overflow-hidden">
+  <section class="relative bg-forest-dark text-cream overflow-hidden">
     <div class="absolute inset-0 opacity-[0.18]" style="background:radial-gradient(circle at 20% 30%, var(--gold) 0, transparent 45%), radial-gradient(circle at 85% 70%, var(--gold) 0, transparent 40%);"></div>
     <div class="max-w-7xl mx-auto px-5 sm:px-6 py-16 sm:py-24 lg:py-32 relative grid md:grid-cols-2 gap-12 items-center">
       <div>
@@ -973,7 +973,7 @@ function renderHome(){
   </section>
 
   <!-- CUSTOMIZED PIECES -->
-  <section class="bg-forest text-cream">
+  <section class="bg-forest-dark text-cream">
     <div class="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
       <div class="reveal order-2 md:order-1">
         <div class="text-xs tracking-wideish uppercase text-gold-light mb-3">Made For You</div>
@@ -1090,7 +1090,7 @@ function renderShop(params){
   else if(sort==='name') list = list.sort((a,b)=>a.name.localeCompare(b.name));
 
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-14 text-center">
+  <section class="bg-forest-dark text-cream py-14 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">Shop The Collection</div>
     <h1 class="serif text-4xl sm:text-5xl">${activeCat==='All' ? 'All Jewellery' : activeCat}</h1>
   </section>
@@ -1210,7 +1210,7 @@ function renderProductPage(id){
    ========================================================================= */
 function renderAbout(){
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-16 text-center">
+  <section class="bg-forest-dark text-cream py-16 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">Our Story</div>
     <h1 class="serif text-4xl sm:text-5xl">About Zorie Collectibles</h1>
   </section>
@@ -1243,7 +1243,7 @@ function renderAbout(){
 function renderCustom(){
   const customizable = DB.products.filter(p=>p.customizable);
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-16 text-center">
+  <section class="bg-forest-dark text-cream py-16 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">Made For You</div>
     <h1 class="serif text-4xl sm:text-5xl">Customized Pieces</h1>
     <p class="text-cream/70 max-w-lg mx-auto mt-4">Choose a customizable piece, tell us your name or word at checkout, and we'll hand-bead it just for you.</p>
@@ -1260,9 +1260,14 @@ function renderCustom(){
    ========================================================================= */
 function goToCheckout(){ location.hash = '#checkout'; }
 
+function deliveryFee(subtotal, method){
+  if(subtotal>50000 || subtotal===0) return 0;
+  return /^Home Delivery/.test(method||'') ? 10000 : 4000;
+}
+
 function checkoutFormHTML(lines, discountPct){
   const subtotal = lines.reduce((s,l)=>s+l.lineTotal,0);
-  const delivery = subtotal>50000 || subtotal===0 ? 0 : 3500;
+  const delivery = deliveryFee(subtotal, prof.delivery_method || 'Home Delivery');
   const discountAmt = Math.round(subtotal * (discountPct||0)/100);
   const total = subtotal - discountAmt + delivery;
   const hasActiveDiscounts = (DB.discounts||[]).some(d=>d.active);
@@ -1292,7 +1297,7 @@ function checkoutFormHTML(lines, discountPct){
         <div><label>City</label><input type="text" id="co-city" value="${pCity}" required autocomplete="address-level2"></div>
         <div>
           <label>Delivery Method</label>
-          <select id="co-method">${methodOpts}</select>
+          <select id="co-method" onchange="updateDeliveryFee()">${methodOpts}</select>
         </div>
       </div>
 
@@ -1334,7 +1339,7 @@ function checkoutFormHTML(lines, discountPct){
       <div class="space-y-2 text-sm">
         <div class="flex justify-between"><span>Subtotal</span><span>${naira(subtotal)}</span></div>
         <div class="flex justify-between"><span>Discount</span><span id="co-discount-line">${discountAmt?('-'+naira(discountAmt)):'—'}</span></div>
-        <div class="flex justify-between"><span>Delivery</span><span>${delivery===0?'Free':naira(delivery)}</span></div>
+        <div class="flex justify-between"><span>Delivery</span><span id="co-delivery-line">${delivery===0?'Free':naira(delivery)}</span></div>
         <div class="flex justify-between font-medium text-base pt-2 border-t border-edge-soft"><span>Total</span><span id="co-total">${naira(total)}</span></div>
       </div>
     </div>
@@ -1342,6 +1347,17 @@ function checkoutFormHTML(lines, discountPct){
 }
 
 let appliedDiscount = 0;
+function updateDeliveryFee(){
+  const sel = document.getElementById('co-method');
+  if(!sel) return;
+  const sub = cartLines().reduce((s,l)=>s+l.lineTotal,0);
+  const delivery = deliveryFee(sub, sel.value);
+  const discAmt = Math.round(sub*(appliedDiscount||0)/100);
+  const row = document.getElementById('co-delivery-line');
+  const tot = document.getElementById('co-total');
+  if(row) row.textContent = delivery===0 ? 'Free' : naira(delivery);
+  if(tot) tot.textContent = naira(sub - discAmt + delivery);
+}
 function applyDiscount(){
   const el = document.getElementById('co-discount');
   if(!el){ appliedDiscount = 0; return; }
@@ -1381,7 +1397,7 @@ async function placeOrder(e){
   const lines = cartLines();
   if(lines.length===0){ toast('Your bag is empty'); return false; }
   const subtotal = lines.reduce((s,l)=>s+l.lineTotal,0);
-  const delivery = subtotal>50000 ? 0 : 3500;
+  const delivery = deliveryFee(subtotal, document.getElementById('co-method').value);
   const discountAmt = Math.round(subtotal*(appliedDiscount||0)/100);
   const total = subtotal - discountAmt + delivery;
   const payMethod = 'opay';
@@ -1870,7 +1886,7 @@ async function renderAdminGate(){
   const authed = flag && (!sb || !!session);
   if(authed){ renderAdmin(); return; }
   document.getElementById('app').innerHTML = `<div class="max-w-sm mx-auto px-6 py-16 text-center">
-    <a href="#home" aria-label="Back to store" title="Back to store" class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest flex items-center justify-center hover:bg-forest-light transition">
+    <a href="#home" aria-label="Back to store" title="Back to store" class="mx-auto mb-4 w-12 h-12 rounded-full bg-forest-dark flex items-center justify-center hover:bg-forest transition">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8BC72" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
     </a>
     <h1 class="serif text-2xl mb-2">Admin Access</h1>
@@ -1916,8 +1932,8 @@ function statusBadge(s){
   else if(t.includes('verif')) cls = 'bg-sky-100 text-sky-800';
   else if(t.includes('payment received')) cls = 'bg-teal-100 text-teal-800';
   else if(t.includes('handcraft')) cls = 'bg-gold-pale text-forest-ink';
-  else if(t.includes('way')) cls = 'bg-forest text-cream';
-  else if(t.includes('delivered')) cls = 'bg-green-600 text-white';
+  else if(t.includes('way')) cls = 'bg-forest-dark text-cream';
+  else if(t.includes('delivered')) cls = 'bg-[#D2B48C] text-[#47301F]';
   else if(t.includes('cancelled')) cls = 'bg-red-100 text-red-700';
   return `<span class="inline-block ${cls} px-2 py-0.5 rounded-full text-[10px] font-semibold">${s}</span>`;
 }
@@ -1926,9 +1942,9 @@ function statusPalette(s){
   if(t.includes('awaiting')) return { bg:'#fef3c7', text:'#92400e', border:'#f59e0b' };
   if(t.includes('verif')) return { bg:'#e0f2fe', text:'#075985', border:'#38bdf8' };
   if(t.includes('payment received')) return { bg:'#ccfbf1', text:'#115e59', border:'#2dd4bf' };
-  if(t.includes('handcraft')) return { bg:'#faf0dc', text:'#173f30', border:'#d8bc72' };
-  if(t.includes('way')) return { bg:'#173f30', text:'#fbf7ec', border:'#173f30' };
-  if(t.includes('delivered')) return { bg:'#16a34a', text:'#ffffff', border:'#16a34a' };
+  if(t.includes('handcraft')) return { bg:'#faf0dc', text:'#5c4033', border:'#d8bc72' };
+  if(t.includes('way')) return { bg:'#5c4033', text:'#fbf7ec', border:'#5c4033' };
+  if(t.includes('delivered')) return { bg:'#D2B48C', text:'#47301F', border:'#C9A06F' };
   if(t.includes('cancelled')) return { bg:'#fee2e2', text:'#b91c1c', border:'#f87171' };
   return { bg:'#f3f4f6', text:'#4b5563', border:'#d1d5db' };
 }
@@ -2016,7 +2032,7 @@ function adminInvoiceHTML(o){
   return `
   <div id="admin-invoice-print" style="width:460px;max-width:100%;margin:0 auto;background:#fff;color:#26261F;font-family:'Jost',sans-serif;">
     <div style="text-align:center;padding:30px 26px 18px;border-bottom:3px double #B8912F;">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:29px;letter-spacing:.04em;color:#0E2A20;">Zorie <span style="font-style:italic;color:#B8912F;">Collectibles</span></div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:29px;letter-spacing:.04em;color:#5C4033;">Zorie <span style="font-style:italic;color:#B8912F;">Collectibles</span></div>
       <div style="font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:#6b6552;margin-top:4px;">Jewellery That Tells Your Story</div>
       <div style="font-size:11px;color:#6b6552;margin-top:10px;">${CONFIG.store.phone} · ${CONFIG.store.email}</div>
     </div>
@@ -2033,7 +2049,7 @@ function adminInvoiceHTML(o){
           <div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#B8912F;margin-bottom:4px;">Invoice</div>
           <div style="font-weight:600;">${o.id}</div>
           <div>${new Date(o.date).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})}</div>
-          <div style="margin-top:8px;"><span style="background:#F1E6C8;color:#0E2A20;padding:3px 10px;font-size:11px;">${o.status}</span></div>
+          <div style="margin-top:8px;"><span style="background:#F1E6C8;color:#5C4033;padding:3px 10px;font-size:11px;">${o.status}</span></div>
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -2060,7 +2076,7 @@ function adminInvoiceHTML(o){
       </div>
     </div>
     <div style="padding:16px 26px 24px;text-align:center;border-top:1px solid #E4DCC7;">
-      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:#0E2A20;">Thank you for supporting handcrafted beauty.</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:#5C4033;">Thank you for supporting handcrafted beauty.</div>
       <div style="font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#9a8f73;margin-top:6px;">${CONFIG.store.phone} · @zories_collectibles</div>
     </div>
   </div>`;
@@ -2140,7 +2156,7 @@ async function renderAdmin(){
       <aside class="min-w-0">
         <nav class="tab-scroll min-w-0 w-full max-w-full flex md:flex-col gap-1.5 overflow-x-auto overscroll-x-contain text-sm sticky top-16 md:top-24 z-30 bg-page/95 backdrop-blur px-1 py-2 pr-2 md:pr-0 -mx-1 md:mx-0 md:px-0 md:py-0">
           ${ADMIN_TABS.map(([k,l,icon])=>`
-            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest text-white shadow-lg shadow-forest/20':'text-forest-ink hover:bg-gold-pale'}">
+            <button onclick="setAdminTab('${k}')" class="shrink-0 flex items-center gap-2 px-4 py-2.5 md:py-2 whitespace-nowrap rounded-full md:rounded-md ${adminTab===k?'bg-forest-dark text-white shadow-lg shadow-forest/20':'text-forest-ink hover:bg-gold-pale'}">
               ${icon}<span>${l}</span>
             </button>`).join('')}
         </nav>
@@ -2698,7 +2714,7 @@ const POLICIES = {
     title: 'Shipping & Returns', icon: '🚚',
     body: `
       <h3>Delivery</h3>
-      <p>We deliver nationwide across Nigeria. Orders ship within 2–4 business days of confirmation. Free home delivery in Lagos on orders above ₦50,000; otherwise a flat ₦3,500 delivery fee applies. Lagos pickup is always free.</p>
+      <p>We deliver nationwide across Nigeria. Orders ship within 2–4 business days of confirmation. Free home delivery in Lagos on orders above ₦50,000; otherwise home delivery costs ₦10,000 and pickup at any of our locations costs ₦4,000.</p>
       <h3>Order Tracking</h3>
       <p>Use the <a href="#track" class="underline">Track Order</a> page with your order number to see the latest status.</p>
       <h3>Returns</h3>
@@ -2741,7 +2757,7 @@ const POLICIES = {
 function renderPolicies(page){
   const p = POLICIES[page] || POLICIES.shipping;
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-14 text-center">
+  <section class="bg-forest-dark text-cream py-14 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">Store Policies</div>
     <h1 class="serif text-4xl sm:text-5xl">${p.title}</h1>
   </section>
@@ -2765,7 +2781,7 @@ function renderFaq(){
     ['Can I cancel my order?','If your order has not been shipped yet, email us and we will cancel and refund it. Personalized pieces enter production quickly, so act fast.']
   ];
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-14 text-center">
+  <section class="bg-forest-dark text-cream py-14 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">Help</div>
     <h1 class="serif text-4xl sm:text-5xl">Frequently Asked Questions</h1>
   </section>
@@ -2787,7 +2803,7 @@ function renderFaq(){
 function renderContact(){
   const s = CONFIG.store;
   document.getElementById('app').innerHTML = `
-  <section class="bg-forest text-cream py-14 text-center">
+  <section class="bg-forest-dark text-cream py-14 text-center">
     <div class="text-xs tracking-wideish uppercase text-gold-light mb-2">We're Here to Help</div>
     <h1 class="serif text-4xl sm:text-5xl">Contact Zorie Collectibles</h1>
   </section>
